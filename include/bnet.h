@@ -18,7 +18,7 @@ namespace bnet
 	{
 		enum Enum
 		{
-			Notify = 0,
+			Notify = 1,
 			IncomingConnection,
 			LostConnection,
 			ListenFailed,

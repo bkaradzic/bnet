@@ -3,118 +3,7 @@
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
 
-#include <bnet.h>
-#include <bx/bx.h>
-
-using namespace bx;
-
-#define BNET_CONFIG_DEBUG 0
-extern void dbgPrintf(const char* _format, ...);
-extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format, ...);
-
-#if BNET_CONFIG_DEBUG
-#	undef BX_TRACE
-#	define BX_TRACE(_format, ...) \
-				do { \
-					dbgPrintf(BX_FILE_LINE_LITERAL "BNET " _format "\n", ##__VA_ARGS__); \
-				} while(0)
-
-#	undef BX_CHECK
-#	define BX_CHECK(_condition, _format, ...) \
-				do { \
-					if (!(_condition) ) \
-					{ \
-						BX_TRACE(BX_FILE_LINE_LITERAL _format, ##__VA_ARGS__); \
-					} \
-				} while(0)
-#endif // 0
-
-#ifndef BNET_CONFIG_OPENSSL
-#	define BNET_CONFIG_OPENSSL (BX_PLATFORM_WINDOWS && BX_COMPILER_MSVC) || BX_PLATFORM_ANDROID
-#endif // BNET_CONFIG_OPENSSL
-
-#ifndef BNET_CONFIG_DEBUG
-#	define BNET_CONFIG_DEBUG 0
-#endif // BNET_CONFIG_DEBUG
-
-#ifndef BNET_CONFIG_CONNECT_TIMEOUT_SECONDS
-#	define BNET_CONFIG_CONNECT_TIMEOUT_SECONDS 5
-#endif // BNET_CONFIG_CONNECT_TIMEOUT_SECONDS
-
-#ifndef BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE
-#	define BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE (64<<10)
-#endif // BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE
-
-#if BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
-#	if BX_PLATFORM_WINDOWS
-#		define _WIN32_WINNT 0x0501
-#		include <winsock2.h>
-#		include <ws2tcpip.h>
-#	elif BX_PLATFORM_XBOX360
-#		include <xtl.h>
-#	endif
-#	define socklen_t int32_t
-#	define EWOULDBLOCK WSAEWOULDBLOCK
-#	define EINPROGRESS WSAEINPROGRESS
-#elif BX_PLATFORM_LINUX || BX_PLATFORM_ANDROID
-#	include <memory.h>
-#	include <errno.h> // errno
-#	include <fcntl.h>
-#	include <netdb.h>
-#	include <unistd.h>
-#	include <sys/socket.h>
-#	include <sys/time.h> // gettimeofday
-#	include <arpa/inet.h> // inet_addr
-#	include <netinet/in.h>
-#	include <netinet/tcp.h>
-	typedef int SOCKET;
-	typedef linger LINGER;
-	typedef hostent HOSTENT;
-	typedef in_addr IN_ADDR;
-	
-#	define SOCKET_ERROR (-1)
-#	define INVALID_SOCKET (-1)
-#	define closesocket close
-#elif BX_PLATFORM_NACL
-#	include <errno.h> // errno
-#	include <stdio.h> // sscanf
-#	include <string.h>
-#	include <sys/time.h> // gettimeofday
-#	include <sys/types.h> // fd_set
-#	include "nacl_socket.h"
-#endif // BX_PLATFORM_
-
-#include <new> // placement new
-
-#if BNET_CONFIG_OPENSSL
-#	include <openssl/err.h>
-#	include <openssl/ssl.h>
-#else
-#	define SSL_CTX void
-#	define X509 void
-#	define EVP_PKEY void
-#endif // BNET_CONFIG_OPENSSL
-
-#if BNET_CONFIG_OPENSSL && BNET_CONFIG_DEBUG
-
-static void getSslErrorInfo()
-{
-	BIO* bio = BIO_new_fp(stderr, BIO_NOCLOSE);
-	ERR_print_errors(bio);
-	BIO_flush(bio);
-	BIO_free(bio);
-}
-
-#	define TRACE_SSL_ERROR() getSslErrorInfo()
-#else
-#	define TRACE_SSL_ERROR()
-#endif // BNET_CONFIG_OPENSSL && BNET_CONFIG_DEBUG
-
-#include <bx/blockalloc.h>
-#include <bx/ringbuffer.h>
-#include <bx/timer.h>
-
-#include <list>
+#include "bnet_p.h"
 
 BX_NO_INLINE void* bnetReallocStub(void* _ptr, size_t _size)
 {
@@ -132,83 +21,29 @@ BX_NO_INLINE void bnetFreeStub(void* _ptr)
 
 namespace bnet
 {
-	static reallocFn s_realloc = bnetReallocStub;
-	static freeFn s_free = bnetFreeStub;
+	reallocFn g_realloc = bnetReallocStub;
+	freeFn g_free = bnetFreeStub;
 
-	template<typename Ty> class FreeList
+#if BNET_CONFIG_OPENSSL && BNET_CONFIG_DEBUG
+
+	static void getSslErrorInfo()
 	{
-	public:
-		FreeList(uint16_t _max)
-		{
-			uint32_t size = BlockAlloc::minElementSize > sizeof(Ty) ? BlockAlloc::minElementSize : sizeof(Ty);
-			m_memBlock = s_realloc(NULL, _max*size);
-			m_allocator = BlockAlloc(m_memBlock, _max, size);
-		}
+		BIO* bio = BIO_new_fp(stderr, BIO_NOCLOSE);
+		ERR_print_errors(bio);
+		BIO_flush(bio);
+		BIO_free(bio);
+	}
 
-		~FreeList()
-		{
-			s_free(m_memBlock);
-		}
-
-		uint16_t getIndex(Ty* _obj) const
-		{
-			return m_allocator.getIndex(_obj);
-		}
-
-		Ty* create()
-		{
-			Ty* obj = static_cast<Ty*>(m_allocator.alloc() );
-			obj = ::new (obj) Ty;
-			return obj;
-		}
-
-		template<typename Arg0> Ty* create(Arg0 _a0)
-		{
-			Ty* obj = static_cast<Ty*>(m_allocator.alloc() );
-			obj = ::new (obj) Ty(_a0);
-			return obj;
-		}
-
-		template<typename Arg0, typename Arg1> Ty* create(Arg0 _a0, Arg1 _a1)
-		{
-			Ty* obj = static_cast<Ty*>(m_allocator.alloc() );
-			obj = ::new (obj) Ty(_a0, _a1);
-			return obj;
-		}
-
-		template<typename Arg0, typename Arg1, typename Arg2> Ty* create(Arg0 _a0, Arg1 _a1, Arg2 _a2)
-		{
-			Ty* obj = static_cast<Ty*>(m_allocator.alloc() );
-			obj = ::new (obj) Ty(_a0, _a1, _a2);
-			return obj;
-		}
-
-		void destroy(Ty* _obj)
-		{
-			_obj->~Ty();
-			m_allocator.free(_obj);
-		}
-
-		Ty* getFromIndex(uint16_t _index)
-		{
-			Ty* obj = static_cast<Ty*>(m_allocator.getFromIndex(_index) );
-			return obj;
-		}
-
-	private:
-		void* m_memBlock;
-		BlockAlloc m_allocator;
-	};
-
-	int g_errno;
+#	define TRACE_SSL_ERROR() getSslErrorInfo()
+#else
+#	define TRACE_SSL_ERROR()
+#endif // BNET_CONFIG_OPENSSL && BNET_CONFIG_DEBUG
 
 	int getLastError()
 	{
 #if BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
-		g_errno = WSAGetLastError();
-		return g_errno;
+		return WSAGetLastError();
 #elif BX_PLATFORM_LINUX || BX_PLATFORM_NACL || BX_PLATFORM_ANDROID
-		g_errno = errno;
 		return errno;
 #else
 		return 0;
@@ -235,129 +70,6 @@ namespace bnet
 #endif // BX_PLATFORM_
 	}
 
-	class RecvRingBuffer
-	{
-	public:
-		RecvRingBuffer(RingBufferControl& _control, char* _buffer)
-			: m_control(_control)
-			, m_write(_control.m_current)
-			, m_reserved(0)
-			, m_buffer(_buffer)
-		{
-		}
-		
-		~RecvRingBuffer()
-		{
-		}
-		
-		int recv(SOCKET _socket)
-		{
-			m_reserved += m_control.reserve(-1);
-			uint32_t end = (m_write + m_reserved) % m_control.m_size;
-			uint32_t wrap = end < m_write ? m_control.m_size - m_write : m_reserved;
-			char* to = &m_buffer[m_write];
-			
-			int bytes = ::recv(_socket
-							, to
-							, wrap
-							, 0
-							);
-			
-			if (0 < bytes)
-			{
-				m_write += bytes;
-				m_write %= m_control.m_size;
-				m_reserved -= bytes;
-				m_control.commit(bytes);
-			}
-			
-			return bytes;
-		}
-
-#if BNET_CONFIG_OPENSSL
-		int recv(SSL* _ssl)
-		{
-			m_reserved += m_control.reserve(-1);
-			uint32_t end = (m_write + m_reserved) % m_control.m_size;
-			uint32_t wrap = end < m_write ? m_control.m_size - m_write : m_reserved;
-			char* to = &m_buffer[m_write];
-
-			int bytes = SSL_read(_ssl
-							, to
-							, wrap
-							);
-
-			if (0 < bytes)
-			{
-				m_write += bytes;
-				m_write %= m_control.m_size;
-				m_reserved -= bytes;
-				m_control.commit(bytes);
-			}
-
-			return bytes;
-		}
-#endif // BNET_CONFIG_OPENSSL
-		
-	private:
-		RecvRingBuffer();
-		RecvRingBuffer(const RecvRingBuffer&);
-		void operator=(const RecvRingBuffer&);
-
-		RingBufferControl& m_control;
-		uint32_t m_write;
-		uint32_t m_reserved;
-		char* m_buffer;
-	};
-
-	class MessageQueue
-	{
-	public:
-		MessageQueue()
-		{
-		}
-
-		~MessageQueue()
-		{
-		}
-
-		void push(Message* _msg)
-		{
-			m_queue.push_back(_msg);
-		}
-
-		Message* peek()
-		{
-			if (!m_queue.empty() )
-			{
-				return m_queue.front();
-			}
-
-			return NULL;
-		}
-
-		Message* pop()
-		{
-			if (!m_queue.empty() )
-			{
-				Message* msg = m_queue.front();
-				m_queue.pop_front();
-				return msg;
-			}
-
-			return NULL;
-		}
-
-	private:
-		std::list<Message*> m_queue;
-	};
-
-	uint16_t ctxAccept(uint16_t _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, X509* _cert, EVP_PKEY* _key);
-	void ctxPush(uint16_t _handle, MessageId::Enum _id);
-	void ctxPush(Message* _msg);
-	Message* ctxAlloc(uint16_t _handle, uint16_t _size, bool _incoming = false);
-	void ctxFree(Message* _msg);
-
 	static void setSockOpts(SOCKET _socket)
 	{
 		int result;
@@ -370,18 +82,6 @@ namespace bnet
 		result = ::setsockopt(_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&noDelay, sizeof(noDelay) );
 	}
 
-	struct Internal
-	{
-		enum Enum
-		{
-			None,
-			Disconnect,
-			Notify,
-
-			Count,
-		};
-	};
-
 	class Connection
 	{
 	public:
@@ -389,27 +89,29 @@ namespace bnet
 			: m_socket(INVALID_SOCKET)
 			, m_denseIndex(_denseIndex)
 			, m_handle(invalidHandle)
-			, m_incomingBuffer( (uint8_t*)s_realloc(NULL, BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE) )
+			, m_incomingBuffer( (uint8_t*)g_realloc(NULL, BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE) )
 			, m_incoming(BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE)
 			, m_recv(m_incoming, (char*)m_incomingBuffer)
 			, m_len(-1)
 			, m_raw(false)
 #if BNET_CONFIG_OPENSSL
 			, m_ssl(NULL)
-			, m_sslHandshake(false)
 #endif // BNET_CONFIG_OPENSSL
+			, m_connected(false)
+			, m_sslHandshake(false)
 		{
 		}
 
 		~Connection()
 		{
-			s_free(m_incomingBuffer);
+			g_free(m_incomingBuffer);
 		}
 
 		void init(uint16_t _handle, bool _raw)
 		{
 			m_handle = _handle;
 			m_connected = false;
+			m_sslHandshake = false;
 			m_connectTimeout = getHPCounter() + getHPFrequency()*BNET_CONFIG_CONNECT_TIMEOUT_SECONDS;
 			m_len = -1;
 			m_raw = _raw;
@@ -458,8 +160,6 @@ namespace bnet
 				m_sslHandshake = true;
 				m_ssl = SSL_new(_sslCtx);
 				SSL_set_fd(m_ssl, (int)m_socket);
-//				BIO* bio = BIO_new_socket(m_socket, BIO_NOCLOSE);
-//				SSL_set_bio(m_ssl, bio, bio);
 				SSL_set_connect_state(m_ssl);
 				SSL_write(m_ssl, NULL, 0);
 			}
@@ -555,7 +255,7 @@ namespace bnet
 			incoming.read(_data, _len);
 		}
 
-		void reassembleMessage()
+		void updateIncomingMessages()
 		{
 			if (m_raw)
 			{
@@ -644,7 +344,7 @@ namespace bnet
 			return m_connected;
 		}
 
-		void update()
+		void updateSocket()
 		{
 			if (INVALID_SOCKET != m_socket
 			&&  updateConnect()
@@ -680,11 +380,7 @@ namespace bnet
 					return;
 				}
 
-				reassembleMessage();
-
-#if BNET_CONFIG_OPENSSL
 				if (!m_sslHandshake)
-#endif // BNET_CONFIG_OPENSSL
 				{
 					if (m_raw)
 					{
@@ -727,6 +423,18 @@ namespace bnet
 			}
 		}
 
+		void update()
+		{
+			updateSocket();
+ 
+ 			if (INVALID_SOCKET != m_socket
+ 			&&  m_connected
+ 			&&  !m_sslHandshake)
+ 			{
+				updateIncomingMessages();
+ 			}
+		}
+
 		uint16_t getHandle() const
 		{
 			return m_handle;
@@ -753,6 +461,7 @@ namespace bnet
 			switch (_id)
 			{
 			case Internal::Disconnect:
+				BX_TRACE("Disconnect - Client closed connection (finish).");
 				disconnect(false);
 				return false;
 
@@ -773,59 +482,57 @@ namespace bnet
 		bool updateSsl()
 		{
 #if BNET_CONFIG_OPENSSL
-			if (NULL != m_ssl)
+			if (NULL != m_ssl
+			&&  m_sslHandshake)
 			{
-				if (m_sslHandshake)
+				int err = SSL_do_handshake(m_ssl);
+
+				if (1 == err)
 				{
-					int err = SSL_do_handshake(m_ssl);
-
-					if (1 == err)
-					{
-						m_sslHandshake = false;
+					m_sslHandshake = false;
 #	if BNET_CONFIG_DEBUG
-						X509* cert = SSL_get_peer_certificate(m_ssl);
-						BX_TRACE("Server certificate:");
+					X509* cert = SSL_get_peer_certificate(m_ssl);
+					BX_TRACE("Server certificate:");
 
-						char* temp;
-						temp = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
-						BX_TRACE("\t subject: %s", temp);
-						OPENSSL_free(temp);
+					char* temp;
+					temp = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
+					BX_TRACE("\t subject: %s", temp);
+					OPENSSL_free(temp);
 
-						temp = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
-						BX_TRACE("\t issuer: %s", temp);
-						OPENSSL_free(temp);
+					temp = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
+					BX_TRACE("\t issuer: %s", temp);
+					OPENSSL_free(temp);
 
-						X509_free(cert);
+					X509_free(cert);
 #	endif // BNET_CONFIG_DEBUG
 
-						long result = SSL_get_verify_result(m_ssl);
-						if (X509_V_OK != result)
-						{
-							BX_TRACE("Disconnect - SSL verify failed %d.", result);
-							ctxPush(m_handle, MessageId::ConnectFailed);
-							disconnect(false);
-							return false;
-						}
-
-						BX_TRACE("SSL connection using %s", SSL_get_cipher(m_ssl) );
-					}
-					else
+					long result = SSL_get_verify_result(m_ssl);
+					if (X509_V_OK != result)
 					{
-						int sslError = SSL_get_error(m_ssl, err);
-						switch (sslError)
-						{
-						case SSL_ERROR_WANT_READ:
-							SSL_read(m_ssl, NULL, 0);
-							break;
+						BX_TRACE("Disconnect - SSL verify failed %d.", result);
+						ctxPush(m_handle, MessageId::ConnectFailed);
+						disconnect(false);
+						return false;
+					}
 
-						case SSL_ERROR_WANT_WRITE:
-							SSL_write(m_ssl, NULL, 0);
-							break;
+					BX_TRACE("SSL connection using %s", SSL_get_cipher(m_ssl) );
+				}
+				else
+				{
+					int sslError = SSL_get_error(m_ssl, err);
+					switch (sslError)
+					{
+					case SSL_ERROR_WANT_READ:
+						SSL_read(m_ssl, NULL, 0);
+						break;
 
-						default:
-							TRACE_SSL_ERROR();
-							break;
-						}
+					case SSL_ERROR_WANT_WRITE:
+						SSL_write(m_ssl, NULL, 0);
+						break;
+
+					default:
+						TRACE_SSL_ERROR();
+						break;
 					}
 				}
 			}
@@ -889,13 +596,13 @@ namespace bnet
 		MessageQueue m_outgoing;
 #if BNET_CONFIG_OPENSSL
 		SSL* m_ssl;
-		bool m_sslHandshake;
 #endif // BNET_CONFIG_OPENSSL
 
 		sockaddr_in m_addr;
 		int m_len;
 		bool m_raw;
 		bool m_connected;
+		bool m_sslHandshake;
 
 	private:
 		Connection();
@@ -1086,16 +793,16 @@ namespace bnet
 
 			_maxConnections = _maxConnections == 0 ? 1 : _maxConnections;
 
-			void* connections = s_realloc(NULL, sizeof(Connections) );
+			void* connections = g_realloc(NULL, sizeof(Connections) );
 			m_connections = ::new(connections) Connections(_maxConnections);
-			m_connectionDense = (uint16_t*)s_realloc(NULL, _maxConnections*sizeof(uint16_t) );
+			m_connectionDense = (uint16_t*)g_realloc(NULL, _maxConnections*sizeof(uint16_t) );
 			m_numConnections = 0;
 
 			if (0 != _maxListenSockets)
 			{
-				void* listenSockets = s_realloc(NULL, sizeof(ListenSockets) );
+				void* listenSockets = g_realloc(NULL, sizeof(ListenSockets) );
 				m_listenSockets = ::new(listenSockets) ListenSockets(_maxListenSockets);
-				m_listenSocketIndex = (uint16_t*)s_realloc(NULL, _maxListenSockets*sizeof(uint16_t) );
+				m_listenSocketIndex = (uint16_t*)g_realloc(NULL, _maxListenSockets*sizeof(uint16_t) );
 				m_numListenSockets = 0;
 			}
 		}
@@ -1103,14 +810,14 @@ namespace bnet
 		void shutdown()
 		{
 			m_connections->~Connections();
-			s_free(m_connections);
-			s_free(m_connectionDense);
+			g_free(m_connections);
+			g_free(m_connectionDense);
 
 			if (NULL != m_listenSockets)
 			{
 				m_listenSockets->~ListenSockets();
-				s_free(m_listenSockets);
-				s_free(m_listenSocketIndex);
+				g_free(m_listenSockets);
+				g_free(m_listenSocketIndex);
 			}
 
 #if BNET_CONFIG_OPENSSL
@@ -1196,23 +903,20 @@ namespace bnet
 			{
 				if (invalidHandle != _handle)
 				{
-					Message* msg = alloc(_handle, 0);
-					uint8_t* data = msg->data - 2;
-					data[0] = Internal::Disconnect;
+					Message* msg = ctxAlloc(_handle, 0, false, Internal::Disconnect);
 					connection->send(msg);
 				}
 			}
 			else
 			{
 				uint16_t denseIndex = connection->getDenseIndex();
+				BX_TRACE("Disconnect - Client closed connection.");
 				connection->disconnect();
-				m_connections->destroy(connection);
-				m_numConnections--;
 
-				uint16_t temp = m_connectionDense[m_numConnections];
-				connection = m_connections->getFromIndex(temp);
-				connection->setDenseIndex(denseIndex);
-				m_connectionDense[denseIndex] = temp;
+				Message* msg = ctxAlloc(_handle, 2, true);
+				msg->data[0] = 0;
+				msg->data[1] = Internal::Disconnect;
+				ctxPush(msg);
 			}
 		}
 
@@ -1220,9 +924,7 @@ namespace bnet
 		{
 			if (invalidHandle != _handle)
 			{
-				Message* msg = alloc(_handle, sizeof(_userData) );
-				uint8_t* data = msg->data - 2;
-				data[0] = Internal::Notify;
+				Message* msg = ctxAlloc(_handle, sizeof(_userData), false, Internal::Notify);
 				memcpy(msg->data, &_userData, sizeof(_userData) );
 				Connection* connection = m_connections->getFromIndex(_handle);
 				connection->send(msg);
@@ -1230,28 +932,11 @@ namespace bnet
 			else
 			{
 				// loopback
-				Message* msg = alloc(_handle, sizeof(_userData)+1, true);
+				Message* msg = ctxAlloc(_handle, sizeof(_userData)+1, true);
 				msg->data[0] = MessageId::Notify;
 				memcpy(&msg->data[1], &_userData, sizeof(_userData) );
 				ctxPush(msg);
 			}
-		}
-
-		Message* alloc(uint16_t _handle, uint16_t _size, bool _incoming = false)
-		{
-			uint16_t offset = _incoming ? 0 : 2;
-			Message* msg = (Message*)s_realloc(NULL, sizeof(Message) + offset + _size);
-			msg->size = _size;
-			msg->handle = _handle;
-			uint8_t* data = (uint8_t*)msg + sizeof(Message);
-			data[0] = Internal::None;
-			msg->data = data + offset;
-			return msg;
-		}
-
-		void free(Message* _msg)
-		{
-			s_free(_msg);
 		}
 
 		void send(Message* _msg)
@@ -1286,7 +971,45 @@ namespace bnet
 				connection->update();
 			}
 
-			return pop();
+			Message* msg = pop();
+
+			while (NULL != msg)
+			{
+				if (invalidHandle == msg->handle) // loopback
+				{
+					return msg;
+				}
+
+				Connection* connection = m_connections->getFromIndex(msg->handle);
+				if (connection->isConnected() )
+				{
+					return msg;
+				}
+
+				uint8_t id = msg->data[0];
+				if (0 != id
+				&&  MessageId::UserDefined > id)
+				{
+					return msg;
+				}
+
+				if (Internal::Disconnect == msg->data[1])
+				{
+					uint16_t denseIndex = connection->getDenseIndex();
+					m_connections->destroy(connection);
+					m_numConnections--;
+
+					uint16_t temp = m_connectionDense[m_numConnections];
+					connection = m_connections->getFromIndex(temp);
+					connection->setDenseIndex(denseIndex);
+					m_connectionDense[denseIndex] = temp;
+				}
+
+				free(msg);
+				msg = pop();
+			}
+
+			return msg;
 		}
 
 		void push(Message* _msg)
@@ -1323,7 +1046,7 @@ namespace bnet
 
 	void ctxPush(uint16_t _handle, MessageId::Enum _id)
 	{
-		Message* msg = s_ctx.alloc(_handle, 1, true);
+		Message* msg = ctxAlloc(_handle, 1, true);
 		msg->data[0] = _id;
 		s_ctx.push(msg);
 	}
@@ -1333,14 +1056,21 @@ namespace bnet
 		s_ctx.push(_msg);
 	}
 
-	Message* ctxAlloc(uint16_t _handle, uint16_t _size, bool _incoming)
+	Message* ctxAlloc(uint16_t _handle, uint16_t _size, bool _incoming, Internal::Enum _type)
 	{
-		return s_ctx.alloc(_handle, _size, _incoming);
+		uint16_t offset = _incoming ? 0 : 2;
+		Message* msg = (Message*)g_realloc(NULL, sizeof(Message) + offset + _size);
+		msg->size = _size;
+		msg->handle = _handle;
+		uint8_t* data = (uint8_t*)msg + sizeof(Message);
+		data[0] = _type;
+		msg->data = data + offset;
+		return msg;
 	}
 
 	void ctxFree(Message* _msg)
 	{
-		s_ctx.free(_msg);
+		g_free(_msg);
 	}
 
 	void init(uint16_t _maxConnections, uint16_t _maxListenSockets, const char* _certs[], reallocFn _realloc, freeFn _free)
@@ -1348,8 +1078,8 @@ namespace bnet
 		if (NULL != _realloc
 		&&  NULL != _free)
 		{
-			s_realloc = _realloc;
-			s_free = _free;
+			g_realloc = _realloc;
+			g_free = _free;
 		}
 
 #if BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
@@ -1396,12 +1126,12 @@ namespace bnet
 
 	Message* alloc(uint16_t _handle, uint16_t _size)
 	{
-		return s_ctx.alloc(_handle, _size);
+		return ctxAlloc(_handle, _size);
 	}
 
 	void free(Message* _msg)
 	{
-		s_ctx.free(_msg);
+		ctxFree(_msg);
 	}
 
 	void send(Message* _msg)
@@ -1428,7 +1158,6 @@ namespace bnet
 		hints.ai_family = AF_UNSPEC;
 
 		int res = getaddrinfo(_addr, NULL, &hints, &result);
-		BX_TRACE("%p", result);
 
 		if (0 == res)
 		{

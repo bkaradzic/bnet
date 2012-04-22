@@ -71,7 +71,7 @@ flags {
 }
 
 includedirs {
-	ROOT_DIR .. "../_bx/include",
+	ROOT_DIR .. "../bx/include",
 }
 
 configuration "Debug"
@@ -100,6 +100,9 @@ configuration { "vs*" }
 		"_SCL_SECURE=0",
 		"_CRT_SECURE_NO_WARNINGS",
 		"_CRT_SECURE_NO_DEPRECATE",
+		"__STDC_LIMIT_MACROS",
+		"__STDC_FORMAT_MACROS",
+		"__STDC_CONSTANT_MACROS",
 	}
 	links {
 		"libeay32",

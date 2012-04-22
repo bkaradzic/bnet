@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include <set>
 #include <malloc.h>
 #include "bnet.h"
@@ -21,7 +22,7 @@ uint16_t httpSendRequest(uint32_t _ip, uint16_t _port, const char* _request, boo
 	bnet::Message* out = bnet::alloc(handle, (uint32_t)strlen(_request) );
 	memcpy(out->data, _request, out->size);
 	bnet::send(out);
-	bnet::notify(handle, (void*)0x123456789ABCDEF);
+	bnet::notify(handle, UINT64_C(0x123456789ABCDEF) );
 
 	return handle;
 }
@@ -110,7 +111,7 @@ int main(int _argc, const char* _argv[])
 		uint32_t size = 0;
 		uint8_t* data = NULL;
 
-		bool cont = bnet::InvalidHandle != handle;
+		bool cont = bnet::invalidHandle != handle;
 		if (cont)
 		{
 			printf("Connecting to %s (%d.%d.%d.%d:%d)\n"
