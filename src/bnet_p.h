@@ -87,7 +87,7 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 #endif // BX_PLATFORM_
 
 #include <bx/debug.h>
-#include <bx/blockalloc.h>
+#include <bx/handlealloc.h>
 #include <bx/ringbuffer.h>
 #include <bx/timer.h>
 
@@ -116,25 +116,33 @@ namespace bnet
 			None,
 			Disconnect,
 			Notify,
+		};
+	};
 
-			Count,
+	struct DisconnectReason
+	{
+		enum Enum
+		{
+			None,
+			RecvFailed,
+			SendFailed,
+			InvalidMessageId,
 		};
 	};
 
 	uint16_t ctxAccept(uint16_t _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, X509* _cert, EVP_PKEY* _key);
 	void ctxPush(uint16_t _handle, MessageId::Enum _id);
 	void ctxPush(Message* _msg);
-	Message* ctxAlloc(uint16_t _handle, uint16_t _size, bool _incoming = false, Internal::Enum _type = Internal::None);
-	void ctxFree(Message* _msg);
+	Message* msgAlloc(uint16_t _handle, uint16_t _size, bool _incoming = false, Internal::Enum _type = Internal::None);
+	void msgRelease(Message* _msg);
 
 	template<typename Ty> class FreeList
 	{
 	public:
 		FreeList(uint16_t _max)
+			: m_allocator(_max)
 		{
-			uint32_t size = BlockAlloc::minElementSize > sizeof(Ty) ? BlockAlloc::minElementSize : sizeof(Ty);
-			m_memBlock = g_realloc(NULL, _max*size);
-			m_allocator = BlockAlloc(m_memBlock, _max, size);
+			m_memBlock = g_realloc(NULL, _max*sizeof(Ty) );
 		}
 
 		~FreeList()
@@ -142,35 +150,34 @@ namespace bnet
 			g_free(m_memBlock);
 		}
 
-		uint16_t getIndex(Ty* _obj) const
-		{
-			return m_allocator.getIndex(_obj);
-		}
-
 		Ty* create()
 		{
-			Ty* obj = static_cast<Ty*>(m_allocator.alloc() );
+			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
+			Ty* obj = &first[m_allocator.alloc()];
 			obj = ::new (obj) Ty;
 			return obj;
 		}
 
 		template<typename Arg0> Ty* create(Arg0 _a0)
 		{
-			Ty* obj = static_cast<Ty*>(m_allocator.alloc() );
+			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
+			Ty* obj = &first[m_allocator.alloc()];
 			obj = ::new (obj) Ty(_a0);
 			return obj;
 		}
 
 		template<typename Arg0, typename Arg1> Ty* create(Arg0 _a0, Arg1 _a1)
 		{
-			Ty* obj = static_cast<Ty*>(m_allocator.alloc() );
+			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
+			Ty* obj = &first[m_allocator.alloc()];
 			obj = ::new (obj) Ty(_a0, _a1);
 			return obj;
 		}
 
 		template<typename Arg0, typename Arg1, typename Arg2> Ty* create(Arg0 _a0, Arg1 _a1, Arg2 _a2)
 		{
-			Ty* obj = static_cast<Ty*>(m_allocator.alloc() );
+			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
+			Ty* obj = &first[m_allocator.alloc()];
 			obj = ::new (obj) Ty(_a0, _a1, _a2);
 			return obj;
 		}
@@ -178,18 +185,35 @@ namespace bnet
 		void destroy(Ty* _obj)
 		{
 			_obj->~Ty();
-			m_allocator.free(_obj);
+			m_allocator.free(getHandle(_obj) );
 		}
 
-		Ty* getFromIndex(uint16_t _index)
+		uint16_t getHandle(Ty* _obj) const
 		{
-			Ty* obj = static_cast<Ty*>(m_allocator.getFromIndex(_index) );
-			return obj;
+			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
+			return (uint16_t)(_obj - first);
+		}
+
+		Ty* getFromHandle(uint16_t _index)
+		{
+			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
+			return &first[_index];
+		}
+
+		uint16_t getNumHandles() const
+		{
+			return m_allocator.getNumHandles();
+		}
+
+		Ty* getFromHandleAt(uint16_t _at)
+		{
+			uint16_t handle = m_allocator.getHandleAt(_at);
+			return getFromHandle(handle);
 		}
 
 	private:
 		void* m_memBlock;
-		BlockAlloc m_allocator;
+		HandleAlloc m_allocator;
 	};
 
 	class RecvRingBuffer

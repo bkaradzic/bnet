@@ -36,6 +36,9 @@ namespace bnet
 		uint16_t handle;
 	};
 
+	typedef Message IncomingMessage;
+	typedef Message OutgoingMessage;
+
 	typedef void* (*reallocFn)(void* _ptr, size_t _size);
 	typedef void (*freeFn)(void* _ptr);
 
@@ -60,17 +63,17 @@ namespace bnet
 	// Notify sender when all prior messages are sent.
 	void notify(uint16_t _handle, uint64_t _userData = 0);
 
-	/// Allocate message.
-	Message* alloc(uint16_t _handle, uint16_t _size);
+	/// Allocate outgoing message.
+	OutgoingMessage* alloc(uint16_t _handle, uint16_t _size);
 
-	/// Free message.
-	void free(Message* _msg);
+	/// Release incoming message.
+	void release(IncomingMessage* _msg);
 
 	/// Send message.
-	void send(Message* _msg);
+	void send(OutgoingMessage* _msg);
 
 	/// Process receive.
-	Message* recv();
+	IncomingMessage* recv();
 
 	/// Convert name to IP address.
 	uint32_t toIpv4(const char* _addr = "");

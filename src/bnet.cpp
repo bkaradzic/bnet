@@ -85,9 +85,8 @@ namespace bnet
 	class Connection
 	{
 	public:
-		Connection(uint16_t _denseIndex)
+		Connection()
 			: m_socket(INVALID_SOCKET)
-			, m_denseIndex(_denseIndex)
 			, m_handle(invalidHandle)
 			, m_incomingBuffer( (uint8_t*)g_realloc(NULL, BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE) )
 			, m_incoming(BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE)
@@ -171,7 +170,7 @@ namespace bnet
 			init(_handle, _raw);
 			
 			m_socket = _socket;
-			Message* msg = ctxAlloc(m_handle, 9, true);
+			Message* msg = msgAlloc(m_handle, 9, true);
 			msg->data[0] = MessageId::IncomingConnection;
 			*( (uint16_t*)&msg->data[1]) = _listenHandle;
 			*( (uint32_t*)&msg->data[3]) = _ip;
@@ -193,7 +192,7 @@ namespace bnet
 #endif // BNET_CONFIG_OPENSSL
 		}
 
-		void disconnect(bool _lost = false)
+		void disconnect(DisconnectReason::Enum _reason = DisconnectReason::None)
 		{
 			if (INVALID_SOCKET != m_socket)
 			{
@@ -212,12 +211,15 @@ namespace bnet
 
 			for (Message* msg = m_outgoing.pop(); NULL != msg; msg = m_outgoing.pop() )
 			{
-				free(msg);
+				release(msg);
 			}
 
-			if (_lost)
+			if (_reason != DisconnectReason::None)
 			{
-				ctxPush(m_handle, MessageId::LostConnection);
+				Message* msg = msgAlloc(m_handle, 2, true);
+				msg->data[0] = MessageId::LostConnection;
+				msg->data[1] = _reason;
+				ctxPush(msg);
 			}
 		}
 
@@ -263,7 +265,7 @@ namespace bnet
 
 				if (0 < available)
 				{
-					Message* msg = ctxAlloc(m_handle, available+1, true);
+					Message* msg = msgAlloc(m_handle, available+1, true);
 					msg->data[0] = MessageId::RawData;
 					read( (char*)&msg->data[1], available);
 					ctxPush(msg);
@@ -296,12 +298,21 @@ namespace bnet
 						}
 						else
 						{
-							Message* msg = ctxAlloc(m_handle, m_len, true);
+							Message* msg = msgAlloc(m_handle, m_len, true);
 							read( (char*)msg->data, m_len);
 							uint8_t id = msg->data[0];
-							msg->data[0] = id < MessageId::UserDefined ? MessageId::UserDefined : id;
+
+							if (id < MessageId::UserDefined)
+							{
+								msgRelease(msg);
+
+								BX_TRACE("Disconnect - Invalid message id.");
+								disconnect(DisconnectReason::InvalidMessageId);
+								return;
+							}
+
 							ctxPush(msg);
-							
+						
 							m_len = -1;
 						}
 					}
@@ -323,7 +334,7 @@ namespace bnet
 			{
 				BX_TRACE("Disconnect - Connect timeout.");
 				ctxPush(m_handle, MessageId::ConnectFailed);
-				disconnect(false);
+				disconnect();
 				return false;
 			}
 
@@ -376,7 +387,7 @@ namespace bnet
 						BX_TRACE("Disconnect - Receive failed. %d", getLastError() );
 					}
 
-					disconnect(true);
+					disconnect(DisconnectReason::RecvFailed);
 					return;
 				}
 
@@ -397,7 +408,7 @@ namespace bnet
 								return;
 							}
 
-							free(m_outgoing.pop() );
+							release(m_outgoing.pop() );
 						}
 					}
 					else
@@ -416,7 +427,7 @@ namespace bnet
 								return;
 							}
 
-							free(m_outgoing.pop() );
+							release(m_outgoing.pop() );
 						}
 					}
 				}
@@ -440,16 +451,6 @@ namespace bnet
 			return m_handle;
 		}
 
-		void setDenseIndex(uint16_t _denseIndex)
-		{
-			m_denseIndex = _denseIndex;
-		}
-
-		uint16_t getDenseIndex() const
-		{
-			return m_denseIndex;
-		}
-
 		bool isConnected() const
 		{
 			return INVALID_SOCKET != m_socket;
@@ -462,12 +463,12 @@ namespace bnet
 			{
 			case Internal::Disconnect:
 				BX_TRACE("Disconnect - Client closed connection (finish).");
-				disconnect(false);
+				disconnect();
 				return false;
 
 			case Internal::Notify:
 				{
-					Message* msg = ctxAlloc(_msg->handle, _msg->size+1, true);
+					Message* msg = msgAlloc(_msg->handle, _msg->size+1, true);
 					msg->data[0] = MessageId::Notify;
 					memcpy(&msg->data[1], _msg->data, _msg->size);
 					ctxPush(msg);
@@ -511,7 +512,7 @@ namespace bnet
 					{
 						BX_TRACE("Disconnect - SSL verify failed %d.", result);
 						ctxPush(m_handle, MessageId::ConnectFailed);
-						disconnect(false);
+						disconnect();
 						return false;
 					}
 
@@ -571,7 +572,7 @@ namespace bnet
 					&&  !isWouldBlock() )
 					{
 						BX_TRACE("Disconnect - Send failed.");
-						disconnect(true);
+						disconnect(DisconnectReason::SendFailed);
 						return false;
 					}
 				}
@@ -588,7 +589,6 @@ namespace bnet
 
 		uint64_t m_connectTimeout;
 		SOCKET m_socket;
-		uint16_t m_denseIndex;
 		uint16_t m_handle;
 		uint8_t* m_incomingBuffer;
 		RingBufferControl m_incoming;
@@ -603,9 +603,6 @@ namespace bnet
 		bool m_raw;
 		bool m_connected;
 		bool m_sslHandshake;
-
-	private:
-		Connection();
 	};
 
 	typedef FreeList<Connection> Connections;
@@ -613,9 +610,8 @@ namespace bnet
 	class ListenSocket
 	{
 	public:
-		ListenSocket(uint16_t _denseIndex)
-			: m_denseIndex(_denseIndex)
-			, m_handle(invalidHandle)
+		ListenSocket()
+			: m_handle(invalidHandle)
 			, m_socket(INVALID_SOCKET)
 			, m_raw(false)
 			, m_secure(false)
@@ -723,24 +719,13 @@ namespace bnet
 			{
 				uint32_t ip = ntohl(addr.sin_addr.s_addr);
 				uint16_t port = ntohs(addr.sin_port);
-				uint16_t handle = ctxAccept(m_handle, socket, ip, port, m_raw, m_cert, m_key);
+				ctxAccept(m_handle, socket, ip, port, m_raw, m_cert, m_key);
 			}
-		}
-
-		void setDenseIndex(uint16_t _denseIndex)
-		{
-			m_denseIndex = _denseIndex;
-		}
-
-		uint16_t getDenseIndex() const
-		{
-			return m_denseIndex;
 		}
 
 	private:
 		sockaddr_in m_addr;
 		SOCKET m_socket;
-		uint16_t m_denseIndex;
 		uint16_t m_handle;
 		bool m_raw;
 		bool m_secure;
@@ -755,11 +740,7 @@ namespace bnet
 	public:
 		Context()
 			: m_connections(NULL)
-			, m_connectionDense(NULL)
 			, m_listenSockets(NULL)
-			, m_listenSocketIndex(NULL)
-			, m_numConnections(0)
-			, m_numListenSockets(0)
 			, m_sslCtx(NULL)
 		{
 		}
@@ -795,15 +776,11 @@ namespace bnet
 
 			void* connections = g_realloc(NULL, sizeof(Connections) );
 			m_connections = ::new(connections) Connections(_maxConnections);
-			m_connectionDense = (uint16_t*)g_realloc(NULL, _maxConnections*sizeof(uint16_t) );
-			m_numConnections = 0;
 
 			if (0 != _maxListenSockets)
 			{
 				void* listenSockets = g_realloc(NULL, sizeof(ListenSockets) );
 				m_listenSockets = ::new(listenSockets) ListenSockets(_maxListenSockets);
-				m_listenSocketIndex = (uint16_t*)g_realloc(NULL, _maxListenSockets*sizeof(uint16_t) );
-				m_numListenSockets = 0;
 			}
 		}
 
@@ -811,13 +788,11 @@ namespace bnet
 		{
 			m_connections->~Connections();
 			g_free(m_connections);
-			g_free(m_connectionDense);
 
 			if (NULL != m_listenSockets)
 			{
 				m_listenSockets->~ListenSockets();
 				g_free(m_listenSockets);
-				g_free(m_listenSocketIndex);
 			}
 
 #if BNET_CONFIG_OPENSSL
@@ -830,12 +805,10 @@ namespace bnet
 
 		uint16_t listen(uint32_t _ip, uint16_t _port, bool _raw, const char* _cert, const char* _key)
 		{
-			ListenSocket* listenSocket = m_listenSockets->create(m_numListenSockets);
+			ListenSocket* listenSocket = m_listenSockets->create();
 			if (NULL != listenSocket)
 			{
-				uint16_t handle = m_listenSockets->getIndex(listenSocket);
-				m_listenSocketIndex[m_numListenSockets] = handle;
-				m_numListenSockets++;
+				uint16_t handle = m_listenSockets->getHandle(listenSocket);
 				listenSocket->listen(handle, _ip, _port, _raw, _cert, _key);
 				return handle;
 			}
@@ -845,35 +818,17 @@ namespace bnet
 
 		void stop(uint16_t _handle)
 		{
-			ListenSocket* listenSocket = m_listenSockets->getFromIndex(_handle);
-			uint16_t denseIndex = listenSocket->getDenseIndex();
+			ListenSocket* listenSocket = m_listenSockets->getFromHandle(_handle);
 			listenSocket->close();
 			m_listenSockets->destroy(listenSocket);
-			m_numListenSockets--;
-
-			listenSocket = m_listenSockets->getFromIndex(m_listenSocketIndex[m_numListenSockets]);
-			listenSocket->setDenseIndex(denseIndex);
-			m_listenSocketIndex[denseIndex] = m_listenSocketIndex[m_numConnections];
-		}
-
-		Connection* allocConnection()
-		{
-			Connection* connection = m_connections->create(m_numConnections);
-			if (NULL != connection)
-			{
-				uint16_t handle = m_connections->getIndex(connection);
-				m_connectionDense[m_numConnections] = handle;
-				m_numConnections++;
-			}
-			return connection;
 		}
 
 		uint16_t accept(uint16_t _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, X509* _cert, EVP_PKEY* _key)
 		{
-			Connection* connection = allocConnection();
+			Connection* connection = m_connections->create();
 			if (NULL != connection)
 			{
-				uint16_t handle = m_connections->getIndex(connection);
+				uint16_t handle = m_connections->getHandle(connection);
 				bool secure = NULL != _cert && NULL != _key;
 				connection->accept(handle, _listenHandle, _socket, _ip, _port, _raw, secure?m_sslCtx:NULL, _cert, _key);
 				return handle;
@@ -884,10 +839,10 @@ namespace bnet
 
 		uint16_t connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure)
 		{
-			Connection* connection = allocConnection();
+			Connection* connection = m_connections->create();
 			if (NULL != connection)
 			{
-				uint16_t handle = m_connections->getIndex(connection);
+				uint16_t handle = m_connections->getHandle(connection);
 				connection->connect(handle, _ip, _port, _raw, _secure?m_sslCtx:NULL);
 				return handle;
 			}
@@ -897,23 +852,19 @@ namespace bnet
 
 		void disconnect(uint16_t _handle, bool _finish)
 		{
-			Connection* connection = m_connections->getFromIndex(_handle);
+			Connection* connection = m_connections->getFromHandle(_handle);
 			if (_finish
 			&&  connection->isConnected() )
 			{
-				if (invalidHandle != _handle)
-				{
-					Message* msg = ctxAlloc(_handle, 0, false, Internal::Disconnect);
-					connection->send(msg);
-				}
+				Message* msg = msgAlloc(_handle, 0, false, Internal::Disconnect);
+				connection->send(msg);
 			}
 			else
 			{
-				uint16_t denseIndex = connection->getDenseIndex();
 				BX_TRACE("Disconnect - Client closed connection.");
 				connection->disconnect();
 
-				Message* msg = ctxAlloc(_handle, 2, true);
+				Message* msg = msgAlloc(_handle, 2, true);
 				msg->data[0] = 0;
 				msg->data[1] = Internal::Disconnect;
 				ctxPush(msg);
@@ -924,15 +875,15 @@ namespace bnet
 		{
 			if (invalidHandle != _handle)
 			{
-				Message* msg = ctxAlloc(_handle, sizeof(_userData), false, Internal::Notify);
+				Message* msg = msgAlloc(_handle, sizeof(_userData), false, Internal::Notify);
 				memcpy(msg->data, &_userData, sizeof(_userData) );
-				Connection* connection = m_connections->getFromIndex(_handle);
+				Connection* connection = m_connections->getFromHandle(_handle);
 				connection->send(msg);
 			}
 			else
 			{
 				// loopback
-				Message* msg = ctxAlloc(_handle, sizeof(_userData)+1, true);
+				Message* msg = msgAlloc(_handle, sizeof(_userData)+1, true);
 				msg->data[0] = MessageId::Notify;
 				memcpy(&msg->data[1], &_userData, sizeof(_userData) );
 				ctxPush(msg);
@@ -943,7 +894,7 @@ namespace bnet
 		{
 			if (invalidHandle != _msg->handle)
 			{
-				Connection* connection = m_connections->getFromIndex(_msg->handle);
+				Connection* connection = m_connections->getFromHandle(_msg->handle);
 				connection->send(_msg);
 			}
 			else
@@ -955,19 +906,18 @@ namespace bnet
 
 		Message* recv()
 		{
-			uint16_t numListenSockets = m_numListenSockets;
-			for (uint16_t ii = 0; ii < numListenSockets; ++ii)
+			if (NULL != m_listenSockets)
 			{
-				uint16_t handle = m_listenSocketIndex[ii];
-				ListenSocket* listenSocket = m_listenSockets->getFromIndex(handle);
-				listenSocket->update();
+				for (uint16_t ii = 0, num = m_listenSockets->getNumHandles(); ii < num; ++ii)
+				{
+					ListenSocket* listenSocket = m_listenSockets->getFromHandleAt(ii);
+					listenSocket->update();
+				}
 			}
 
-			uint16_t numConnections = m_numConnections;
-			for (uint32_t ii = 0; ii < numConnections; ++ii)
+			for (uint32_t ii = 0, num = m_connections->getNumHandles(); ii < num; ++ii)
 			{
-				uint16_t handle = m_connectionDense[ii];
-				Connection* connection = m_connections->getFromIndex(handle);
+				Connection* connection = m_connections->getFromHandleAt(ii);
 				connection->update();
 			}
 
@@ -980,7 +930,7 @@ namespace bnet
 					return msg;
 				}
 
-				Connection* connection = m_connections->getFromIndex(msg->handle);
+				Connection* connection = m_connections->getFromHandle(msg->handle);
 				if (connection->isConnected() )
 				{
 					return msg;
@@ -995,17 +945,10 @@ namespace bnet
 
 				if (Internal::Disconnect == msg->data[1])
 				{
-					uint16_t denseIndex = connection->getDenseIndex();
 					m_connections->destroy(connection);
-					m_numConnections--;
-
-					uint16_t temp = m_connectionDense[m_numConnections];
-					connection = m_connections->getFromIndex(temp);
-					connection->setDenseIndex(denseIndex);
-					m_connectionDense[denseIndex] = temp;
 				}
 
-				free(msg);
+				release(msg);
 				msg = pop();
 			}
 
@@ -1024,13 +967,7 @@ namespace bnet
 
 	private:
 		Connections* m_connections;
-		uint16_t* m_connectionDense;
-
 		ListenSockets* m_listenSockets;
-		uint16_t* m_listenSocketIndex;
-
-		uint16_t m_numConnections;
-		uint16_t m_numListenSockets;
 
 		MessageQueue m_incoming;
 
@@ -1046,7 +983,7 @@ namespace bnet
 
 	void ctxPush(uint16_t _handle, MessageId::Enum _id)
 	{
-		Message* msg = ctxAlloc(_handle, 1, true);
+		Message* msg = msgAlloc(_handle, 1, true);
 		msg->data[0] = _id;
 		s_ctx.push(msg);
 	}
@@ -1056,7 +993,7 @@ namespace bnet
 		s_ctx.push(_msg);
 	}
 
-	Message* ctxAlloc(uint16_t _handle, uint16_t _size, bool _incoming, Internal::Enum _type)
+	Message* msgAlloc(uint16_t _handle, uint16_t _size, bool _incoming, Internal::Enum _type)
 	{
 		uint16_t offset = _incoming ? 0 : 2;
 		Message* msg = (Message*)g_realloc(NULL, sizeof(Message) + offset + _size);
@@ -1068,7 +1005,7 @@ namespace bnet
 		return msg;
 	}
 
-	void ctxFree(Message* _msg)
+	void msgRelease(Message* _msg)
 	{
 		g_free(_msg);
 	}
@@ -1124,22 +1061,22 @@ namespace bnet
 		s_ctx.notify(_handle, _userData);
 	}
 
-	Message* alloc(uint16_t _handle, uint16_t _size)
+	OutgoingMessage* alloc(uint16_t _handle, uint16_t _size)
 	{
-		return ctxAlloc(_handle, _size);
+		return msgAlloc(_handle, _size);
 	}
 
-	void free(Message* _msg)
+	void release(IncomingMessage* _msg)
 	{
-		ctxFree(_msg);
+		msgRelease(_msg);
 	}
 
-	void send(Message* _msg)
+	void send(OutgoingMessage* _msg)
 	{
 		s_ctx.send(_msg);
 	}
 
-	Message* recv()
+	IncomingMessage* recv()
 	{
 		return s_ctx.recv();
 	}
