@@ -96,24 +96,16 @@ namespace bnet
 #if BNET_CONFIG_OPENSSL
 			, m_ssl(NULL)
 #endif // BNET_CONFIG_OPENSSL
-			, m_connected(false)
+			, m_tcpHandshake(true)
 			, m_sslHandshake(false)
 		{
+			BX_TRACE("ctor %d", m_handle);
 		}
 
 		~Connection()
 		{
+			BX_TRACE("dtor %d", m_handle);
 			g_free(m_incomingBuffer);
-		}
-
-		void init(uint16_t _handle, bool _raw)
-		{
-			m_handle = _handle;
-			m_connected = false;
-			m_sslHandshake = false;
-			m_connectTimeout = getHPCounter() + getHPFrequency()*BNET_CONFIG_CONNECT_TIMEOUT_SECONDS;
-			m_len = -1;
-			m_raw = _raw;
 		}
 
 		void connect(uint16_t _handle, uint32_t _ip, uint16_t _port, bool _raw, SSL_CTX* _sslCtx)
@@ -232,6 +224,38 @@ namespace bnet
 			}
 		}
 
+		void update()
+		{
+			if (INVALID_SOCKET != m_socket)
+			{
+				updateSocket();
+
+				if (!m_tcpHandshake
+				&&  !m_sslHandshake)
+				{
+					updateIncomingMessages();
+				}
+			}
+		}
+
+		bool hasSocket() const
+		{
+			return INVALID_SOCKET != m_socket;
+		}
+
+	private:
+		void init(uint16_t _handle, bool _raw)
+		{
+			m_handle = _handle;
+			m_tcpHandshake = true;
+			m_sslHandshake = false;
+			m_tcpHandshakeTimeout = getHPCounter() + getHPFrequency()*BNET_CONFIG_CONNECT_TIMEOUT_SECONDS;
+			m_len = -1;
+			m_raw = _raw;
+
+			BX_TRACE("init %d", m_handle);
+		}
+
 		void read(WriteRingBuffer& _out, uint32_t _len)
 		{
 			ReadRingBuffer incoming(m_incoming, (char*)m_incomingBuffer, _len);
@@ -306,7 +330,7 @@ namespace bnet
 							{
 								msgRelease(msg);
 
-								BX_TRACE("Disconnect - Invalid message id.");
+								BX_TRACE("Disconnect %d - Invalid message id.", m_handle);
 								disconnect(DisconnectReason::InvalidMessageId);
 								return;
 							}
@@ -322,44 +346,10 @@ namespace bnet
 			}
 		}
 
-		bool updateConnect()
-		{
-			if (m_connected)
-			{
-				return true;
-			}
-
-			uint64_t now = getHPCounter();
-			if (now > m_connectTimeout)
-			{
-				BX_TRACE("Disconnect - Connect timeout.");
-				ctxPush(m_handle, MessageId::ConnectFailed);
-				disconnect();
-				return false;
-			}
-
-			fd_set rfds;
-			FD_ZERO(&rfds);
-			fd_set wfds;
-			FD_ZERO(&wfds);
-			FD_SET(m_socket, &rfds);
-			FD_SET(m_socket, &wfds);
-
-			timeval timeout;
-			timeout.tv_sec = 0;
-			timeout.tv_usec = 0;
-
-			int result = ::select(2, &rfds, &wfds, NULL, &timeout);
-			m_connected = 0 < result;
-
-			return m_connected;
-		}
-
 		void updateSocket()
 		{
-			if (INVALID_SOCKET != m_socket
-			&&  updateConnect()
-			&&  updateSsl() )
+			if (updateTcpHandshake()
+			&&  updateSslHandshake() )
 			{
 				int bytes;
 
@@ -379,12 +369,12 @@ namespace bnet
 				{
 					if (0 == bytes)
 					{
-						BX_TRACE("Disconnect - Host closed connection.");
+						BX_TRACE("Disconnect %d - Host closed connection.", m_handle);
 					}
 					else
 					{
 						TRACE_SSL_ERROR();
-						BX_TRACE("Disconnect - Receive failed. %d", getLastError() );
+						BX_TRACE("Disconnect %d - Receive failed. %d", m_handle, getLastError() );
 					}
 
 					disconnect(DisconnectReason::RecvFailed);
@@ -434,36 +424,20 @@ namespace bnet
 			}
 		}
 
-		void update()
-		{
-			updateSocket();
- 
- 			if (INVALID_SOCKET != m_socket
- 			&&  m_connected
- 			&&  !m_sslHandshake)
- 			{
-				updateIncomingMessages();
- 			}
-		}
-
-		uint16_t getHandle() const
-		{
-			return m_handle;
-		}
-
-		bool isConnected() const
-		{
-			return INVALID_SOCKET != m_socket;
-		}
-
-	private:
 		bool processInternal(Internal::Enum _id, Message* _msg)
 		{
 			switch (_id)
 			{
 			case Internal::Disconnect:
-				BX_TRACE("Disconnect - Client closed connection (finish).");
-				disconnect();
+				{
+					Message* msg = msgAlloc(_msg->handle, 2, true);
+					msg->data[0] = 0;
+					msg->data[1] = Internal::Disconnect;
+					ctxPush(msg);
+
+					BX_TRACE("Disconnect %d - Client closed connection (finish).", m_handle);
+					disconnect();
+				}
 				return false;
 
 			case Internal::Notify:
@@ -480,7 +454,40 @@ namespace bnet
 			return true;
 		}
 
-		bool updateSsl()
+		bool updateTcpHandshake()
+		{
+			if (!m_tcpHandshake)
+			{
+				return true;
+			}
+
+			uint64_t now = getHPCounter();
+			if (now > m_tcpHandshakeTimeout)
+			{
+				BX_TRACE("Disconnect %d - Connect timeout.", m_handle);
+				ctxPush(m_handle, MessageId::ConnectFailed);
+				disconnect();
+				return false;
+			}
+
+			fd_set rfds;
+			FD_ZERO(&rfds);
+			fd_set wfds;
+			FD_ZERO(&wfds);
+			FD_SET(m_socket, &rfds);
+			FD_SET(m_socket, &wfds);
+
+			timeval timeout;
+			timeout.tv_sec = 0;
+			timeout.tv_usec = 0;
+
+			int result = ::select(2, &rfds, &wfds, NULL, &timeout);
+			m_tcpHandshake = !(0 < result);
+
+			return !m_tcpHandshake;
+		}
+
+		bool updateSslHandshake()
 		{
 #if BNET_CONFIG_OPENSSL
 			if (NULL != m_ssl
@@ -510,7 +517,7 @@ namespace bnet
 					long result = SSL_get_verify_result(m_ssl);
 					if (X509_V_OK != result)
 					{
-						BX_TRACE("Disconnect - SSL verify failed %d.", result);
+						BX_TRACE("Disconnect %d - SSL verify failed %d.", m_handle, result);
 						ctxPush(m_handle, MessageId::ConnectFailed);
 						disconnect();
 						return false;
@@ -571,7 +578,7 @@ namespace bnet
 					if (-1 == bytes
 					&&  !isWouldBlock() )
 					{
-						BX_TRACE("Disconnect - Send failed.");
+						BX_TRACE("Disconnect %d - Send failed.", m_handle);
 						disconnect(DisconnectReason::SendFailed);
 						return false;
 					}
@@ -587,7 +594,7 @@ namespace bnet
 			return true;
 		}
 
-		uint64_t m_connectTimeout;
+		uint64_t m_tcpHandshakeTimeout;
 		SOCKET m_socket;
 		uint16_t m_handle;
 		uint8_t* m_incomingBuffer;
@@ -601,7 +608,7 @@ namespace bnet
 		sockaddr_in m_addr;
 		int m_len;
 		bool m_raw;
-		bool m_connected;
+		bool m_tcpHandshake;
 		bool m_sslHandshake;
 	};
 
@@ -854,14 +861,14 @@ namespace bnet
 		{
 			Connection* connection = m_connections->getFromHandle(_handle);
 			if (_finish
-			&&  connection->isConnected() )
+			&&  connection->hasSocket() )
 			{
 				Message* msg = msgAlloc(_handle, 0, false, Internal::Disconnect);
 				connection->send(msg);
 			}
 			else
 			{
-				BX_TRACE("Disconnect - Client closed connection.");
+				BX_TRACE("Disconnect %d - Client closed connection.", _handle);
 				connection->disconnect();
 
 				Message* msg = msgAlloc(_handle, 2, true);
@@ -931,14 +938,10 @@ namespace bnet
 				}
 
 				Connection* connection = m_connections->getFromHandle(msg->handle);
-				if (connection->isConnected() )
-				{
-					return msg;
-				}
 
 				uint8_t id = msg->data[0];
 				if (0 != id
-				&&  MessageId::UserDefined > id)
+				&& (connection->hasSocket() || MessageId::UserDefined > id) )
 				{
 					return msg;
 				}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2011 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2012 Branimir Karadzic. All rights reserved.
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
 
@@ -170,7 +170,7 @@ int main(int _argc, const char* _argv[])
 				}
 			}
 
-			bnet::free(msg);
+			bnet::release(msg);
 		}
 	}
 

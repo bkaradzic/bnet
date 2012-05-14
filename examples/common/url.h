@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2012 Branimir Karadzic. All rights reserved.
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
 
@@ -24,5 +24,6 @@ struct UrlToken
 };
 
 void tokenizeUrl(const char* _url, char* _buf, size_t _bufSize, char* _tokens[UrlToken::Count]);
+void urlEncode(const char* _str, char* _buf, size_t _bufSize);
 
 #endif // __URL_H__

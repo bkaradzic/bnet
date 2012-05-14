@@ -1,8 +1,10 @@
 /*
- * Copyright 2011 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2012 Branimir Karadzic. All rights reserved.
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
 
+#include <ctype.h>
+#include <stdint.h>
 #include <string.h>
 #include "url.h"
 
@@ -81,4 +83,31 @@ void tokenizeUrl(const char* _url, char* _buf, size_t _bufSize, char* _tokens[Ur
 			}
 		}
 	}
+}
+
+static char toHex(char _nible)
+{
+	return "0123456789ABCDEF"[_nible&0xf];
+}
+
+// https://secure.wikimedia.org/wikipedia/en/wiki/URL_encoding
+void urlEncode(const char* _str, char* _buf, size_t _bufSize)
+{
+	_bufSize--; // need space for zero terminator
+
+	uint32_t ii = 0;
+	for (char ch = *_str++; '\0' != ch && ii < _bufSize; ch = *_str++)
+	{
+		if (isalnum(ch) || ch == '-' || ch == '_' || ch == '.' || ch == '~')
+		{
+			_buf[ii++] = ch;
+		}
+		else if (ii+3 < _bufSize)
+		{
+			_buf[ii++] = '%';
+			_buf[ii++] = toHex(ch>>4);
+			_buf[ii++] = toHex(ch);
+		}
+	}
+	_buf[ii] = '\0';
 }
