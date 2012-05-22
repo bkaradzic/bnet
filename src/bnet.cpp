@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2011 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2012 Branimir Karadzic. All rights reserved.
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
 
@@ -186,12 +186,6 @@ namespace bnet
 
 		void disconnect(DisconnectReason::Enum _reason = DisconnectReason::None)
 		{
-			if (INVALID_SOCKET != m_socket)
-			{
-				::closesocket(m_socket);
-				m_socket = INVALID_SOCKET;
-			}
-
 #if BNET_CONFIG_OPENSSL
 			if (m_ssl)
 			{
@@ -200,6 +194,12 @@ namespace bnet
 				m_ssl = NULL;
 			}
 #endif // BNET_CONFIG_OPENSSL
+
+			if (INVALID_SOCKET != m_socket)
+			{
+				::closesocket(m_socket);
+				m_socket = INVALID_SOCKET;
+			}
 
 			for (Message* msg = m_outgoing.pop(); NULL != msg; msg = m_outgoing.pop() )
 			{
@@ -793,6 +793,11 @@ namespace bnet
 
 		void shutdown()
 		{
+			for (Message* msg = m_incoming.pop(); NULL != msg; msg = m_incoming.pop() )
+			{
+				release(msg);
+			}
+
 			m_connections->~Connections();
 			g_free(m_connections);
 
@@ -859,6 +864,8 @@ namespace bnet
 
 		void disconnect(uint16_t _handle, bool _finish)
 		{
+			BX_CHECK(_handle < m_connections->getMaxHandles(), "Invalid handle %d!", _handle);
+
 			Connection* connection = m_connections->getFromHandle(_handle);
 			if (_finish
 			&&  connection->hasSocket() )
@@ -880,6 +887,9 @@ namespace bnet
 
 		void notify(uint16_t _handle, uint64_t _userData)
 		{
+			BX_CHECK(_handle == invalidHandle // loopback
+			      || _handle < m_connections->getMaxHandles(), "Invalid handle %d!", _handle);
+
 			if (invalidHandle != _handle)
 			{
 				Message* msg = msgAlloc(_handle, sizeof(_userData), false, Internal::Notify);
@@ -899,6 +909,11 @@ namespace bnet
 
 		void send(Message* _msg)
 		{
+			BX_CHECK(_msg->handle == invalidHandle // loopback
+			      || _msg->handle < m_connections->getMaxHandles(), "Invalid handle %d!", _msg->handle);
+
+			BX_CHECK(_msg->data[0] >= MessageId::UserDefined, "Sending message with MessageId below UserDefined is not allowed!");
+
 			if (invalidHandle != _msg->handle)
 			{
 				Connection* connection = m_connections->getFromHandle(_msg->handle);
@@ -928,7 +943,7 @@ namespace bnet
 				connection->update();
 			}
 
-			Message* msg = pop();
+			Message* msg = m_incoming.pop();
 
 			while (NULL != msg)
 			{
@@ -940,19 +955,18 @@ namespace bnet
 				Connection* connection = m_connections->getFromHandle(msg->handle);
 
 				uint8_t id = msg->data[0];
-				if (0 != id
-				&& (connection->hasSocket() || MessageId::UserDefined > id) )
+				if (0 == id
+				&&  Internal::Disconnect == msg->data[1])
+				{
+					m_connections->destroy(connection);
+				}
+				else if (connection->hasSocket() || MessageId::UserDefined > id)
 				{
 					return msg;
 				}
 
-				if (Internal::Disconnect == msg->data[1])
-				{
-					m_connections->destroy(connection);
-				}
-
 				release(msg);
-				msg = pop();
+				msg = m_incoming.pop();
 			}
 
 			return msg;
@@ -961,11 +975,6 @@ namespace bnet
 		void push(Message* _msg)
 		{
 			m_incoming.push(_msg);
-		}
-
-		Message* pop()
-		{
-			return m_incoming.pop();
 		}
 
 	private:

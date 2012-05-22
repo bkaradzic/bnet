@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2011 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2012 Branimir Karadzic. All rights reserved.
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
 
@@ -8,7 +8,10 @@
 
 #include "bnet.h"
 
-#define BNET_CONFIG_DEBUG 0
+#ifndef BNET_CONFIG_DEBUG
+#	define BNET_CONFIG_DEBUG 0
+#endif // BNET_CONFIG_DEBUG
+
 extern void dbgPrintf(const char* _format, ...);
 extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format, ...);
 
@@ -203,6 +206,11 @@ namespace bnet
 		uint16_t getNumHandles() const
 		{
 			return m_allocator.getNumHandles();
+		}
+
+		uint16_t getMaxHandles() const
+		{
+			return m_allocator.getMaxHandles();
 		}
 
 		Ty* getFromHandleAt(uint16_t _at)

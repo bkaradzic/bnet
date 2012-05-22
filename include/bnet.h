@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2011 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2012 Branimir Karadzic. All rights reserved.
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
 
@@ -66,14 +66,14 @@ namespace bnet
 	/// Allocate outgoing message.
 	OutgoingMessage* alloc(uint16_t _handle, uint16_t _size);
 
-	/// Release incoming message.
-	void release(IncomingMessage* _msg);
-
 	/// Send message.
 	void send(OutgoingMessage* _msg);
 
 	/// Process receive.
 	IncomingMessage* recv();
+
+	/// Release incoming message.
+	void release(IncomingMessage* _msg);
 
 	/// Convert name to IP address.
 	uint32_t toIpv4(const char* _addr = "");
