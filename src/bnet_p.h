@@ -35,7 +35,7 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 #include <bx/bx.h>
 
 #ifndef BNET_CONFIG_OPENSSL
-#	define BNET_CONFIG_OPENSSL (BX_PLATFORM_WINDOWS && BX_COMPILER_MSVC) || BX_PLATFORM_ANDROID
+#	define BNET_CONFIG_OPENSSL (BX_PLATFORM_WINDOWS && BX_COMPILER_MSVC) || BX_PLATFORM_ANDROID || BX_PLATFORM_LINUX
 #endif // BNET_CONFIG_OPENSSL
 
 #ifndef BNET_CONFIG_DEBUG

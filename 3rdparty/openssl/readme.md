@@ -37,3 +37,16 @@ You'll have to manually copy lib.pdb into /lib folder to avoid linker warnings a
 	./Configure linux-generic32 no-idea no-bf no-cast no-seed no-md2 -DL_ENDIAN --prefix=/openssl/android_arm7
 	make depend
 	make install CC=<path to Android-NDK compiler> RANLIB=<...>
+
+### Ubuntu-12.04
+
+	i386 CC="gcc -m32" ./config --prefix=<path>/linux-generic32
+	make install
+
+	CC="gcc -m64" ./config --prefix=<path>/linux-generic64
+	make install
+
+	cp <path>/linux-generic32/lib/*.a <path to 3rdparty/openssl>/linux-generic32/lib/
+	cp <path>/linux-generic32/include <path to 3rdparty/openssl>/linux-generic32/
+	cp <path>/linux-generic64/lib/*.a <path to 3rdparty/openssl>/linux-generic64/lib/
+	cp <path>/linux-generic64/include <path to 3rdparty/openssl>/linux-generic64/

@@ -30,7 +30,7 @@ namespace bnet
 	{
 		BIO* bio = BIO_new_fp(stderr, BIO_NOCLOSE);
 		ERR_print_errors(bio);
-		BIO_flush(bio);
+		(void)BIO_flush(bio);
 		BIO_free(bio);
 	}
 
@@ -481,7 +481,7 @@ namespace bnet
 			timeout.tv_sec = 0;
 			timeout.tv_usec = 0;
 
-			int result = ::select(2, &rfds, &wfds, NULL, &timeout);
+			int result = ::select( (int)m_socket + 1 /*nfds is ignored on windows*/, &rfds, &wfds, NULL, &timeout);
 			m_tcpHandshake = !(0 < result);
 
 			return !m_tcpHandshake;
