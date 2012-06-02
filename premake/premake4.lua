@@ -30,14 +30,14 @@ newoption {
 -- Avoid error when invoking premake4 --help.
 if (_ACTION == nil) then return end
 
-ROOT_DIR = (path.getabsolute("..") .. "/")
-BUILD_DIR = (ROOT_DIR .. ".build/")
-THIRD_PARTY_DIR = (ROOT_DIR .. "3rdparty/")
+BNET_DIR = (path.getabsolute("..") .. "/")
+local BNET_BUILD_DIR = (BNET_DIR .. ".build/")
+local BNET_THIRD_PARTY_DIR = (BNET_DIR .. "3rdparty/")
 
 local XEDK = os.getenv("XEDK")
 if not XEDK then XEDK = "<you must install XBOX SDK>" end
 
-location (BUILD_DIR .. "projects/" .. _ACTION)
+location (BNET_BUILD_DIR .. "projects/" .. _ACTION)
 
 if _ACTION == "gmake" then
 
@@ -71,7 +71,7 @@ flags {
 }
 
 includedirs {
-	ROOT_DIR .. "../bx/include",
+	BNET_DIR .. "../bx/include",
 }
 
 configuration "Debug"
@@ -111,143 +111,66 @@ configuration { "vs*" }
 
 configuration { "x32", "vs*" }
 	defines { "WIN32" }
-	targetdir (BUILD_DIR .. "win32_" .. _ACTION .. "/bin")
-	objdir (BUILD_DIR .. "win32_" .. _ACTION .. "/obj")
+	targetdir (BNET_BUILD_DIR .. "win32_" .. _ACTION .. "/bin")
+	objdir (BNET_BUILD_DIR .. "win32_" .. _ACTION .. "/obj")
 	includedirs {
-		THIRD_PARTY_DIR .. "msinttypes",
-		THIRD_PARTY_DIR .. "openssl/lib/win32_" .. _ACTION .. "/include",
+		BNET_THIRD_PARTY_DIR .. "msinttypes",
+		BNET_THIRD_PARTY_DIR .. "openssl/lib/win32_" .. _ACTION .. "/include",
 	}
-	libdirs { THIRD_PARTY_DIR .. "openssl/lib/win32_" .. _ACTION .. "/lib" }
+	libdirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/win32_" .. _ACTION .. "/lib" }
 
 configuration { "x64", "vs*" }
 	defines { "WIN32" }
-	targetdir (BUILD_DIR .. "win64_" .. _ACTION .. "/bin")
-	objdir (BUILD_DIR .. "win64_" .. _ACTION .. "/obj")
+	targetdir (BNET_BUILD_DIR .. "win64_" .. _ACTION .. "/bin")
+	objdir (BNET_BUILD_DIR .. "win64_" .. _ACTION .. "/obj")
 	includedirs {
-		THIRD_PARTY_DIR .. "msinttypes",
-		THIRD_PARTY_DIR .. "openssl/lib/win64_" .. _ACTION .. "/include",
+		BNET_THIRD_PARTY_DIR .. "msinttypes",
+		BNET_THIRD_PARTY_DIR .. "openssl/lib/win64_" .. _ACTION .. "/include",
 	}
-	libdirs { THIRD_PARTY_DIR .. "openssl/lib/win64_" .. _ACTION .. "/lib" }
+	libdirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/win64_" .. _ACTION .. "/lib" }
 
 configuration { "x32", "mingw" }
 	defines { "WIN32" }
-	targetdir (BUILD_DIR .. "win32_mingw" .. "/bin")
-	objdir (BUILD_DIR .. "win32_mingw" .. "/obj")
-	includedirs { THIRD_PARTY_DIR .. "openssl/lib/win32_mingw/include" }
-	libdirs { THIRD_PARTY_DIR .. "openssl/lib/win32_mingw/lib" }
+	targetdir (BNET_BUILD_DIR .. "win32_mingw" .. "/bin")
+	objdir (BNET_BUILD_DIR .. "win32_mingw" .. "/obj")
+	includedirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/win32_mingw/include" }
+	libdirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/win32_mingw/lib" }
 
 configuration { "x64", "mingw" }
 	defines { "WIN32" }
-	targetdir (BUILD_DIR .. "win64_mingw" .. "/bin")
-	objdir (BUILD_DIR .. "win64_mingw" .. "/obj")
-	includedirs { THIRD_PARTY_DIR .. "openssl/lib/win64_mingw/include" }
-	libdirs { THIRD_PARTY_DIR .. "openssl/lib/win64_mingw/lib" }
+	targetdir (BNET_BUILD_DIR .. "win64_mingw" .. "/bin")
+	objdir (BNET_BUILD_DIR .. "win64_mingw" .. "/obj")
+	includedirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/win64_mingw/include" }
+	libdirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/win64_mingw/lib" }
 
 configuration { "x32", "nacl" }
-	targetdir (BUILD_DIR .. "nacl32" .. "/bin")
-	objdir (BUILD_DIR .. "nacl32" .. "/obj")
+	targetdir (BNET_BUILD_DIR .. "nacl32" .. "/bin")
+	objdir (BNET_BUILD_DIR .. "nacl32" .. "/obj")
 
 configuration { "x64", "nacl" }
-	targetdir (BUILD_DIR .. "nacl64" .. "/bin")
-	objdir (BUILD_DIR .. "nacl64" .. "/obj")
+	targetdir (BNET_BUILD_DIR .. "nacl64" .. "/bin")
+	objdir (BNET_BUILD_DIR .. "nacl64" .. "/obj")
 
 configuration { "x32", "linux" }
-	targetdir (BUILD_DIR .. "linux32" .. "/bin")
-	objdir (BUILD_DIR .. "linux32" .. "/obj")
+	targetdir (BNET_BUILD_DIR .. "linux32" .. "/bin")
+	objdir (BNET_BUILD_DIR .. "linux32" .. "/obj")
 
 configuration { "x64", "linux" }
-	targetdir (BUILD_DIR .. "linux64" .. "/bin")
-	objdir (BUILD_DIR .. "linux64" .. "/obj")
+	targetdir (BNET_BUILD_DIR .. "linux64" .. "/bin")
+	objdir (BNET_BUILD_DIR .. "linux64" .. "/obj")
 
 configuration { "Xbox360" }
 	defines { "_XBOX", "NOMINMAX" }
-	targetdir (BUILD_DIR .. "xbox360" .. "/bin")
-	objdir (BUILD_DIR .. "xbox360" .. "/obj")
-	includedirs { THIRD_PARTY_DIR .. "openssl/lib/xbox360/include" }
-	libdirs { THIRD_PARTY_DIR .. "openssl/lib/xbox360/lib" }
+	targetdir (BNET_BUILD_DIR .. "xbox360" .. "/bin")
+	objdir (BNET_BUILD_DIR .. "xbox360" .. "/obj")
+	includedirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/xbox360/include" }
+	libdirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/xbox360/lib" }
 
 configuration {} -- reset configuration
 
-project "bnet"
-	uuid "e72d44a0-ab28-11e0-9f1c-0800200c9a66"
-	kind "StaticLib"
+function copyLib()
+end
 
-	includedirs {
-		"../include",
-	}
-
-	files {
-		"../include/**.h",
-		"../src/**.cpp",
-		"../src/**.h",
-	}
-
-project "http"
-	uuid "35161d20-ab2b-11e0-9f1c-0800200c9a66"
-	kind "ConsoleApp"
-
-	includedirs {
-		"../include",
-	}
-
-	files {
-		"../examples/common/**",
-		"../examples/http/http.cpp"
-	}
-
-	links {
-		"bnet",
-	}
-
-	configuration { "mingw" }
-		links {
-			"ssl",
-			"crypto",
-			"gdi32",
-		}
-
-	configuration { "vs*" }
-		links {
-			"libeay32",
-			"ssleay32",
-		}
-
-	configuration { "x32 or x64", "windows" }
-		links {
-			"ws2_32",
-		}
-
-	configuration { "Xbox360" }
-		links {
-			"xonline",
-		}
-
-	configuration {}
-
-project "chat"
-	uuid "1544c710-ad76-11e0-9f1c-0800200c9a66"
-	kind "ConsoleApp"
-
-	includedirs {
-		"../include",
-	}
-
-	files {
-		"../examples/common/**",
-		"../examples/chat/chat.cpp"
-	}
-
-	links {
-		"bnet",
-	}
-
-	configuration { "x32 or x64", "windows" }
-		links {
-			"ws2_32",
-		}
-
-	configuration { "Xbox360" }
-		links {
-			"xonline",
-		}
-
+dofile "bnet.lua"
+dofile "chat.lua"
+dofile "http.lua"
