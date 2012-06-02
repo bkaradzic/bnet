@@ -1,14 +1,16 @@
 bnet
 ====
 
-TCP library.
+Message oriented networking library using TCP transport.
 
 Contact
 -------
 
-Twitter @bkaradzic
+[@bkaradzic](https://twitter.com/bkaradzic)  
+http://www.stuckingeometry.com
 
-Web http://www.stuckingeometry.com
+Project page  
+https://github.com/bkaradzic/bnet
 
 License
 -------
