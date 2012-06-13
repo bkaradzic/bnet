@@ -99,6 +99,7 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 #if BNET_CONFIG_OPENSSL
 #	include <openssl/err.h>
 #	include <openssl/ssl.h>
+#	include <openssl/crypto.h>
 #else
 #	define SSL_CTX void
 #	define X509 void

@@ -5,24 +5,29 @@
 
 #include "bnet_p.h"
 
-BX_NO_INLINE void* bnetReallocStub(void* _ptr, size_t _size)
-{
-	void* ptr = ::realloc(_ptr, _size);
-	BX_CHECK(NULL != ptr, "Out of memory!");
-	//	BX_TRACE("alloc %d, %p", _size, ptr);
-	return ptr;
-}
-
-BX_NO_INLINE void bnetFreeStub(void* _ptr)
-{
-	// 	BX_TRACE("free %p", _ptr);
-	::free(_ptr);
-}
-
 namespace bnet
 {
-	reallocFn g_realloc = bnetReallocStub;
-	freeFn g_free = bnetFreeStub;
+	void* mallocStub(size_t _size)
+	{
+		return g_realloc(NULL, _size);
+	}
+
+	void* reallocStub(void* _ptr, size_t _size)
+	{
+		void* ptr = ::realloc(_ptr, _size);
+		BX_CHECK(NULL != ptr, "Out of memory!");
+		//	BX_TRACE("alloc %d, %p", _size, ptr);
+		return ptr;
+	}
+
+	void freeStub(void* _ptr)
+	{
+		// 	BX_TRACE("free %p", _ptr);
+		::free(_ptr);
+	}
+
+	reallocFn g_realloc = reallocStub;
+	freeFn g_free = freeStub;
 
 #if BNET_CONFIG_OPENSSL && BNET_CONFIG_DEBUG
 
@@ -759,6 +764,8 @@ namespace bnet
 		void init(uint16_t _maxConnections, uint16_t _maxListenSockets, const char* _certs[])
 		{
 #if BNET_CONFIG_OPENSSL
+			CRYPTO_get_mem_functions(&m_sslMalloc, &m_sslRealloc, &m_sslFree);
+			CRYPTO_set_mem_functions(mallocStub, g_realloc, g_free);
 			SSL_library_init();
 #	if BNET_CONFIG_DEBUG
 			SSL_load_error_strings();
@@ -812,6 +819,7 @@ namespace bnet
 			{
 				SSL_CTX_free(m_sslCtx);
 			}
+			CRYPTO_set_mem_functions(m_sslMalloc, m_sslRealloc, m_sslFree);
 #endif // BNET_CONFIG_OPENSSL
 		}
 
@@ -982,6 +990,13 @@ namespace bnet
 		ListenSockets* m_listenSockets;
 
 		MessageQueue m_incoming;
+
+#if BNET_CONFIG_OPENSSL
+		typedef void* (*mallocFn)(size_t _size);
+		mallocFn m_sslMalloc;
+		reallocFn m_sslRealloc;
+		freeFn m_sslFree;
+#endif // BNET_CONFIG_OPENSSL
 
 		SSL_CTX* m_sslCtx;
 	};
