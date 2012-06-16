@@ -48,7 +48,7 @@ namespace bnet
 	{
 #if BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
 		return WSAGetLastError();
-#elif BX_PLATFORM_LINUX || BX_PLATFORM_NACL || BX_PLATFORM_ANDROID
+#elif BX_PLATFORM_LINUX || BX_PLATFORM_NACL || BX_PLATFORM_ANDROID || BX_PLATFORM_OSX || BX_PLATFORM_IOS
 		return errno;
 #else
 		return 0;
@@ -70,7 +70,7 @@ namespace bnet
 #if BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
 		unsigned long opt = 1 ;
 		::ioctlsocket(_socket, FIONBIO, &opt);
-#elif BX_PLATFORM_LINUX || BX_PLATFORM_ANDROID
+#elif BX_PLATFORM_LINUX || BX_PLATFORM_ANDROID || BX_PLATFORM_OSX || BX_PLATFORM_IOS
 		::fcntl(_socket, F_SETFL, O_NONBLOCK);
 #endif // BX_PLATFORM_
 	}

@@ -61,7 +61,7 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 #	define socklen_t int32_t
 #	define EWOULDBLOCK WSAEWOULDBLOCK
 #	define EINPROGRESS WSAEINPROGRESS
-#elif BX_PLATFORM_LINUX || BX_PLATFORM_ANDROID
+#elif BX_PLATFORM_LINUX || BX_PLATFORM_ANDROID || BX_PLATFORM_OSX || BX_PLATFORM_IOS
 #	include <memory.h>
 #	include <errno.h> // errno
 #	include <fcntl.h>
