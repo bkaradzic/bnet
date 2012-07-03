@@ -159,6 +159,8 @@ namespace bnet
 				SSL_set_connect_state(m_ssl);
 				SSL_write(m_ssl, NULL, 0);
 			}
+#else
+			BX_UNUSED(_sslCtx);
 #endif // BNET_CONFIG_OPENSSL
 		}
 
@@ -186,6 +188,10 @@ namespace bnet
 				SSL_set_accept_state(m_ssl);
 				SSL_read(m_ssl, NULL, 0);
 			}
+#else
+			BX_UNUSED(_sslCtx);
+			BX_UNUSED(_cert);
+			BX_UNUSED(_key);
 #endif // BNET_CONFIG_OPENSSL
 		}
 
@@ -453,6 +459,9 @@ namespace bnet
 					ctxPush(msg);
 				}
 				return true;
+
+			default:
+				break;
 			}
 
 			BX_CHECK(false, "You shoud not be here!");
@@ -623,8 +632,8 @@ namespace bnet
 	{
 	public:
 		ListenSocket()
-			: m_handle(invalidHandle)
-			, m_socket(INVALID_SOCKET)
+			: m_socket(INVALID_SOCKET)
+			, m_handle(invalidHandle)
 			, m_raw(false)
 			, m_secure(false)
 			, m_cert(NULL)
@@ -784,6 +793,8 @@ namespace bnet
 					BIO_free(mem);
 				}
 			}
+#else
+			BX_UNUSED(_certs);
 #endif // BNET_CONFIG_OPENSSL
 
 			_maxConnections = _maxConnections == 0 ? 1 : _maxConnections;
