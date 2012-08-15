@@ -114,7 +114,7 @@ namespace bnet
 			g_free(m_incomingBuffer);
 		}
 
-		void connect(uint16_t _handle, uint32_t _ip, uint16_t _port, bool _raw, SSL_CTX* _sslCtx)
+		void connect(uint16_t _handle, const char *_host, uint16_t _port, bool _raw, SSL_CTX* _sslCtx)
 		{
 			init(_handle, _raw);
 
@@ -128,18 +128,7 @@ namespace bnet
 			setSockOpts(m_socket);
 			setNonBlock(m_socket);
 
-			m_addr.sin_family = AF_INET;
-			m_addr.sin_addr.s_addr = htonl(_ip);
-			m_addr.sin_port = htons(_port);
-
-			union
-			{
-				sockaddr* sa;
-				sockaddr_in* sain;
-			} saintosa;
-			saintosa.sain = &m_addr;
-			
-			int err = ::connect(m_socket, saintosa.sa, sizeof(m_addr) );
+			int err = connectsocket(m_socket, _host, _port);
 
 			if (0 != err
 			&&  !(isInProgress() || isWouldBlock() ) )
@@ -620,7 +609,6 @@ namespace bnet
 		SSL* m_ssl;
 #endif // BNET_CONFIG_OPENSSL
 
-		sockaddr_in m_addr;
 		int m_len;
 		bool m_raw;
 		bool m_tcpHandshake;
@@ -869,13 +857,13 @@ namespace bnet
 			return invalidHandle;
 		}
 
-		uint16_t connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure)
+		uint16_t connect(const char* _host, uint16_t _port, bool _raw, bool _secure)
 		{
 			Connection* connection = m_connections->create();
 			if (NULL != connection)
 			{
 				uint16_t handle = m_connections->getHandle(connection);
-				connection->connect(handle, _ip, _port, _raw, _secure?m_sslCtx:NULL);
+				connection->connect(handle, _host, _port, _raw, _secure?m_sslCtx:NULL);
 				return handle;
 			}
 
@@ -1085,9 +1073,9 @@ namespace bnet
 		return s_ctx.stop(_handle);
 	}
 
-	uint16_t connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure)
+	uint16_t connect(const char* _host, uint16_t _port, bool _raw, bool _secure)
 	{
-		return s_ctx.connect(_ip, _port, _raw, _secure);
+		return s_ctx.connect(_host, _port, _raw, _secure);
 	}
 
 	void disconnect(uint16_t _handle, bool _finish)

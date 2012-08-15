@@ -83,7 +83,7 @@ inline uint16_t ntohs(uint16_t _hostshort)
 
 extern int naclOpenSocket();
 extern void naclCloseSocket(int _fd);
-extern int naclConnect(int _fd, uint32_t _ip, uint16_t _port);
+int naclConnect(int _fd, const char* _host, uint16_t _port);
 extern size_t naclSend(int _fd, const void* _buf, size_t _n);
 extern size_t naclRecv(int _fd, void* _buf, size_t _n);
 extern bool naclIsConnected();
@@ -98,12 +98,9 @@ inline void closesocket(int _fd)
 	naclCloseSocket(_fd);
 }
 
-inline int connect(int _fd, const struct sockaddr* _addr, socklen_t _len)
+inline int connectsocket(int _fd, const char* _host, uint16_t _port)
 {
-	const sockaddr_in* addr = (const sockaddr_in*)_addr;
-	uint32_t ip = ntohl(addr->sin_addr.s_addr);
-	uint16_t port = ntohs(addr->sin_port);
-	return naclConnect(_fd, ip, port);
+	return naclConnect(_fd, _host, _port);
 }
 
 inline size_t send(int _fd, const void* _buf, size_t _n, int _flags)

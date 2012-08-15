@@ -55,7 +55,7 @@ namespace bnet
 	void stop(uint16_t _handle);
 
 	/// Connect to remote host.
-	uint16_t connect(uint32_t _ip, uint16_t _port, bool _raw = false, bool _secure = false);
+	uint16_t connect(const char* _host, uint16_t _port, bool _raw = false, bool _secure = false);
 
 	/// Disconnect from remote host.
 	void disconnect(uint16_t _handle, bool _finish = false);
