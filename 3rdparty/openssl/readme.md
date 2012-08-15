@@ -3,7 +3,7 @@
 Downloaded latest version of OpenSSL:
 http://www.openssl.org/source/
 
-The latest version at the moment of writing this is openssl-1.0.0d.
+The latest version at the moment of writing this is openssl-1.0.1c.
 
 ## MS Windows
 
