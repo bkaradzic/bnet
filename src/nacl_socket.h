@@ -86,7 +86,7 @@ extern void naclCloseSocket(int _fd);
 int naclConnect(int _fd, const char* _host, uint16_t _port);
 extern size_t naclSend(int _fd, const void* _buf, size_t _n);
 extern size_t naclRecv(int _fd, void* _buf, size_t _n);
-extern bool naclIsConnected();
+extern bool naclIsConnected(int _fd);
 
 inline int socket(int _domain, int _type, int _protocol)
 {
@@ -113,9 +113,9 @@ inline size_t recv(int _fd, void* _buf, size_t _n, int _flags)
 	return naclRecv(_fd, _buf, _n);
 }
 
-inline int select(int _nfds, fd_set* _readfds, fd_set* _writefds, fd_set* __exceptfds, struct timeval* _timeout)
+static bool issocketready(int _fd)
 {	
-	return naclIsConnected() ? _nfds : 0;
+	return naclIsConnected(_fd);
 }
 
 inline int setsockopt(int _fd, int _level, int _optname, const void* _optval, socklen_t _optlen)

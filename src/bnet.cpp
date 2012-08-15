@@ -474,20 +474,7 @@ namespace bnet
 				return false;
 			}
 
-			fd_set rfds;
-			FD_ZERO(&rfds);
-			fd_set wfds;
-			FD_ZERO(&wfds);
-			FD_SET(m_socket, &rfds);
-			FD_SET(m_socket, &wfds);
-
-			timeval timeout;
-			timeout.tv_sec = 0;
-			timeout.tv_usec = 0;
-
-			int result = ::select( (int)m_socket + 1 /*nfds is ignored on windows*/, &rfds, &wfds, NULL, &timeout);
-			m_tcpHandshake = !(0 < result);
-
+			m_tcpHandshake = !issocketready(m_socket);
 			return !m_tcpHandshake;
 		}
 

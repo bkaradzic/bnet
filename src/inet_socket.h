@@ -22,4 +22,21 @@ static int connectsocket(SOCKET socket, const char* _host, uint16_t _port)
 	return ::connect(socket, saintosa.sa, sizeof(addr));
 }
 
+static bool issocketready(SOCKET socket)
+{
+	fd_set rfds;
+	FD_ZERO(&rfds);
+	fd_set wfds;
+	FD_ZERO(&wfds);
+	FD_SET(socket, &rfds);
+	FD_SET(socket, &wfds);
+
+	timeval timeout;
+	timeout.tv_sec = 0;
+	timeout.tv_usec = 0;
+
+	int result = ::select( (int)socket + 1 /*nfds is ignored on windows*/, &rfds, &wfds, NULL, &timeout);
+	return result > 0;
+}
+
 #endif // __INET_SOCKET__
