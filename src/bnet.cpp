@@ -85,6 +85,7 @@ namespace bnet
 
 		int noDelay = 1;
 		result = ::setsockopt(_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&noDelay, sizeof(noDelay) );
+		BX_UNUSED(result);
 	}
 
 	class Connection
