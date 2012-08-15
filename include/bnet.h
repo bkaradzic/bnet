@@ -54,7 +54,7 @@ namespace bnet
 	/// Stop listening for incoming connections.
 	void stop(uint16_t _handle);
 
-	/// Connect ot remote host.
+	/// Connect to remote host.
 	uint16_t connect(uint32_t _ip, uint16_t _port, bool _raw = false, bool _secure = false);
 
 	/// Disconnect from remote host.
