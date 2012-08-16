@@ -37,5 +37,3 @@ project "bnet"
 		BNET_DIR .. "src/**.cpp",
 		BNET_DIR .. "src/**.h",
 	}
-
-	copyLib()
