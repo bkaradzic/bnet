@@ -168,9 +168,6 @@ configuration { "Xbox360" }
 
 configuration {} -- reset configuration
 
-function copyLib()
-end
-
 dofile "bnet.lua"
 dofile "chat.lua"
 dofile "http.lua"
