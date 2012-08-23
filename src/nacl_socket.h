@@ -84,8 +84,8 @@ inline uint16_t ntohs(uint16_t _hostshort)
 extern int naclOpenSocket();
 extern void naclCloseSocket(int _fd);
 int naclConnect(int _fd, const char* _host, uint16_t _port, bool _secure);
-extern size_t naclSend(int _fd, const void* _buf, size_t _n);
-extern size_t naclRecv(int _fd, void* _buf, size_t _n);
+extern ssize_t naclSend(int _fd, const void* _buf, size_t _n);
+extern ssize_t naclRecv(int _fd, void* _buf, size_t _n);
 extern bool naclIsConnected(int _fd);
 
 inline int socket(int _domain, int _type, int _protocol)
@@ -103,12 +103,12 @@ inline int connectsocket(int _fd, const char* _host, uint16_t _port, bool _secur
 	return naclConnect(_fd, _host, _port, _secure);
 }
 
-inline size_t send(int _fd, const void* _buf, size_t _n, int _flags)
+inline ssize_t send(int _fd, const void* _buf, size_t _n, int _flags)
 {
 	return naclSend(_fd, _buf, _n);
 }
 
-inline size_t recv(int _fd, void* _buf, size_t _n, int _flags)
+inline ssize_t recv(int _fd, void* _buf, size_t _n, int _flags)
 {
 	return naclRecv(_fd, _buf, _n);
 }
