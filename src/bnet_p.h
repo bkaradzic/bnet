@@ -63,6 +63,7 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 #	define socklen_t int32_t
 #	define EWOULDBLOCK WSAEWOULDBLOCK
 #	define EINPROGRESS WSAEINPROGRESS
+#	include "inet_socket.h"
 #elif BX_PLATFORM_LINUX || BX_PLATFORM_ANDROID || BX_PLATFORM_OSX || BX_PLATFORM_IOS
 #	include <memory.h>
 #	include <errno.h> // errno
@@ -82,6 +83,7 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 #	define SOCKET_ERROR (-1)
 #	define INVALID_SOCKET (-1)
 #	define closesocket close
+#	include "inet_socket.h"
 #elif BX_PLATFORM_NACL
 #	include <errno.h> // errno
 #	include <stdio.h> // sscanf
