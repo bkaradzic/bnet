@@ -34,6 +34,8 @@ BNET_DIR = (path.getabsolute("..") .. "/")
 local BNET_BUILD_DIR = (BNET_DIR .. ".build/")
 local BNET_THIRD_PARTY_DIR = (BNET_DIR .. "3rdparty/")
 
+BX_DIR = (BNET_DIR .. "/../../bx/")
+
 local XEDK = os.getenv("XEDK")
 if not XEDK then XEDK = "<you must install XBOX SDK>" end
 
@@ -71,7 +73,7 @@ flags {
 }
 
 includedirs {
-	BNET_DIR .. "../bx/include",
+	BX_DIR .. "include/",
 }
 
 configuration "Debug"
@@ -114,7 +116,7 @@ configuration { "x32", "vs*" }
 	targetdir (BNET_BUILD_DIR .. "win32_" .. _ACTION .. "/bin")
 	objdir (BNET_BUILD_DIR .. "win32_" .. _ACTION .. "/obj")
 	includedirs {
-		BNET_THIRD_PARTY_DIR .. "msinttypes",
+		BX_DIR .. "include/compat/msvc",
 		BNET_THIRD_PARTY_DIR .. "openssl/lib/win32_" .. _ACTION .. "/include",
 	}
 	libdirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/win32_" .. _ACTION .. "/lib" }
@@ -124,7 +126,7 @@ configuration { "x64", "vs*" }
 	targetdir (BNET_BUILD_DIR .. "win64_" .. _ACTION .. "/bin")
 	objdir (BNET_BUILD_DIR .. "win64_" .. _ACTION .. "/obj")
 	includedirs {
-		BNET_THIRD_PARTY_DIR .. "msinttypes",
+		BX_DIR .. "include/compat/msvc",
 		BNET_THIRD_PARTY_DIR .. "openssl/lib/win64_" .. _ACTION .. "/include",
 	}
 	libdirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/win64_" .. _ACTION .. "/lib" }
@@ -133,21 +135,29 @@ configuration { "x32", "mingw" }
 	defines { "WIN32" }
 	targetdir (BNET_BUILD_DIR .. "win32_mingw" .. "/bin")
 	objdir (BNET_BUILD_DIR .. "win32_mingw" .. "/obj")
-	includedirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/win32_mingw/include" }
+	includedirs {
+		BX_DIR .. "include/compat/mingw",
+		BNET_THIRD_PARTY_DIR .. "openssl/lib/win32_mingw/include",
+	}
 	libdirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/win32_mingw/lib" }
 
 configuration { "x64", "mingw" }
 	defines { "WIN32" }
 	targetdir (BNET_BUILD_DIR .. "win64_mingw" .. "/bin")
 	objdir (BNET_BUILD_DIR .. "win64_mingw" .. "/obj")
-	includedirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/win64_mingw/include" }
+	includedirs {
+		BX_DIR .. "include/compat/mingw",
+		BNET_THIRD_PARTY_DIR .. "openssl/lib/win64_mingw/include",
+	}
 	libdirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/win64_mingw/lib" }
 
 configuration { "x32", "nacl" }
+	includedirs { BX_DIR .. "include/compat/nacl" }
 	targetdir (BNET_BUILD_DIR .. "nacl32" .. "/bin")
 	objdir (BNET_BUILD_DIR .. "nacl32" .. "/obj")
 
 configuration { "x64", "nacl" }
+	includedirs { BX_DIR .. "include/compat/nacl" }
 	targetdir (BNET_BUILD_DIR .. "nacl64" .. "/bin")
 	objdir (BNET_BUILD_DIR .. "nacl64" .. "/obj")
 
@@ -163,7 +173,10 @@ configuration { "Xbox360" }
 	defines { "_XBOX", "NOMINMAX" }
 	targetdir (BNET_BUILD_DIR .. "xbox360" .. "/bin")
 	objdir (BNET_BUILD_DIR .. "xbox360" .. "/obj")
-	includedirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/xbox360/include" }
+	includedirs {
+		BX_DIR .. "include/compat/msvc",
+		BNET_THIRD_PARTY_DIR .. "openssl/lib/xbox360/include",
+	}
 	libdirs { BNET_THIRD_PARTY_DIR .. "openssl/lib/xbox360/lib" }
 
 configuration {} -- reset configuration
