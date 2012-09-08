@@ -52,7 +52,9 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 
 #if BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
 #	if BX_PLATFORM_WINDOWS
-#		define _WIN32_WINNT 0x0501
+#		if !defined(_WIN32_WINNT)
+#			define _WIN32_WINNT 0x0501
+#		endif
 #		include <winsock2.h>
 #		include <ws2tcpip.h>
 #	elif BX_PLATFORM_XBOX360
