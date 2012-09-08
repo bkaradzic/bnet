@@ -55,6 +55,11 @@ namespace bnet
 #endif // BX_PLATFORM_
 	}
 
+#if BNET_CONFIG_OPENSSL
+#else
+	static int sslDumyContext;
+#endif
+
 	bool isInProgress()
 	{
 		return EINPROGRESS == getLastError();
@@ -114,7 +119,7 @@ namespace bnet
 			g_free(m_incomingBuffer);
 		}
 
-		void connect(uint16_t _handle, uint32_t _ip, uint16_t _port, bool _raw, SSL_CTX* _sslCtx)
+		void connect(uint16_t _handle, const char *_host, uint16_t _port, bool _raw, SSL_CTX* _sslCtx)
 		{
 			init(_handle, _raw);
 
@@ -128,18 +133,7 @@ namespace bnet
 			setSockOpts(m_socket);
 			setNonBlock(m_socket);
 
-			m_addr.sin_family = AF_INET;
-			m_addr.sin_addr.s_addr = htonl(_ip);
-			m_addr.sin_port = htons(_port);
-
-			union
-			{
-				sockaddr* sa;
-				sockaddr_in* sain;
-			} saintosa;
-			saintosa.sain = &m_addr;
-			
-			int err = ::connect(m_socket, saintosa.sa, sizeof(m_addr) );
+			int err = connectsocket(m_socket, _host, _port, _sslCtx != 0);
 
 			if (0 != err
 			&&  !(isInProgress() || isWouldBlock() ) )
@@ -186,6 +180,7 @@ namespace bnet
 				result = SSL_use_certificate(m_ssl, _cert);
 				result = SSL_use_PrivateKey(m_ssl, _key);
 				result = SSL_set_fd(m_ssl, (int)m_socket);
+				BX_UNUSED(result);
 				SSL_set_accept_state(m_ssl);
 				SSL_read(m_ssl, NULL, 0);
 			}
@@ -490,20 +485,7 @@ namespace bnet
 				return false;
 			}
 
-			fd_set rfds;
-			FD_ZERO(&rfds);
-			fd_set wfds;
-			FD_ZERO(&wfds);
-			FD_SET(m_socket, &rfds);
-			FD_SET(m_socket, &wfds);
-
-			timeval timeout;
-			timeout.tv_sec = 0;
-			timeout.tv_usec = 0;
-
-			int result = ::select( (int)m_socket + 1 /*nfds is ignored on windows*/, &rfds, &wfds, NULL, &timeout);
-			m_tcpHandshake = !(0 < result);
-
+			m_tcpHandshake = !issocketready(m_socket);
 			return !m_tcpHandshake;
 		}
 
@@ -625,7 +607,6 @@ namespace bnet
 		SSL* m_ssl;
 #endif // BNET_CONFIG_OPENSSL
 
-		sockaddr_in m_addr;
 		int m_len;
 		bool m_raw;
 		bool m_tcpHandshake;
@@ -800,6 +781,7 @@ namespace bnet
 				}
 			}
 #else
+			m_sslCtx = &sslDumyContext;
 			BX_UNUSED(_certs);
 #endif // BNET_CONFIG_OPENSSL
 
@@ -874,13 +856,13 @@ namespace bnet
 			return invalidHandle;
 		}
 
-		uint16_t connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure)
+		uint16_t connect(const char* _host, uint16_t _port, bool _raw, bool _secure)
 		{
 			Connection* connection = m_connections->create();
 			if (NULL != connection)
 			{
 				uint16_t handle = m_connections->getHandle(connection);
-				connection->connect(handle, _ip, _port, _raw, _secure?m_sslCtx:NULL);
+				connection->connect(handle, _host, _port, _raw, _secure?m_sslCtx:NULL);
 				return handle;
 			}
 
@@ -1088,9 +1070,9 @@ namespace bnet
 		return s_ctx.stop(_handle);
 	}
 
-	uint16_t connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure)
+	uint16_t connect(const char* _host, uint16_t _port, bool _raw, bool _secure)
 	{
-		return s_ctx.connect(_ip, _port, _raw, _secure);
+		return s_ctx.connect(_host, _port, _raw, _secure);
 	}
 
 	void disconnect(uint16_t _handle, bool _finish)

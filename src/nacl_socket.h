@@ -83,10 +83,10 @@ inline uint16_t ntohs(uint16_t _hostshort)
 
 extern int naclOpenSocket();
 extern void naclCloseSocket(int _fd);
-extern int naclConnect(int _fd, uint32_t _ip, uint16_t _port);
-extern size_t naclSend(int _fd, const void* _buf, size_t _n);
-extern size_t naclRecv(int _fd, void* _buf, size_t _n);
-extern bool naclIsConnected();
+int naclConnect(int _fd, const char* _host, uint16_t _port, bool _secure);
+extern ssize_t naclSend(int _fd, const void* _buf, size_t _n);
+extern ssize_t naclRecv(int _fd, void* _buf, size_t _n);
+extern bool naclIsConnected(int _fd);
 
 inline int socket(int _domain, int _type, int _protocol)
 {
@@ -98,27 +98,24 @@ inline void closesocket(int _fd)
 	naclCloseSocket(_fd);
 }
 
-inline int connect(int _fd, const struct sockaddr* _addr, socklen_t _len)
+inline int connectsocket(int _fd, const char* _host, uint16_t _port, bool _secure)
 {
-	const sockaddr_in* addr = (const sockaddr_in*)_addr;
-	uint32_t ip = ntohl(addr->sin_addr.s_addr);
-	uint16_t port = ntohs(addr->sin_port);
-	return naclConnect(_fd, ip, port);
+	return naclConnect(_fd, _host, _port, _secure);
 }
 
-inline size_t send(int _fd, const void* _buf, size_t _n, int _flags)
+inline ssize_t send(int _fd, const void* _buf, size_t _n, int _flags)
 {
 	return naclSend(_fd, _buf, _n);
 }
 
-inline size_t recv(int _fd, void* _buf, size_t _n, int _flags)
+inline ssize_t recv(int _fd, void* _buf, size_t _n, int _flags)
 {
 	return naclRecv(_fd, _buf, _n);
 }
 
-inline int select(int _nfds, fd_set* _readfds, fd_set* _writefds, fd_set* __exceptfds, struct timeval* _timeout)
+static bool issocketready(int _fd)
 {	
-	return naclIsConnected() ? _nfds : 0;
+	return naclIsConnected(_fd);
 }
 
 inline int setsockopt(int _fd, int _level, int _optname, const void* _optval, socklen_t _optlen)
