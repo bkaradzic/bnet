@@ -12,6 +12,11 @@ http://www.stuckingeometry.com
 Project page  
 https://github.com/bkaradzic/bnet
 
+Thanks
+------
+
+ - Matthew Endsley https://github.com/mendsley
+
 License
 -------
 
