@@ -97,11 +97,11 @@ namespace bnet
 			, m_incomingBuffer( (uint8_t*)g_realloc(NULL, BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE) )
 			, m_incoming(BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE)
 			, m_recv(m_incoming, (char*)m_incomingBuffer)
-			, m_len(-1)
-			, m_raw(false)
 #if BNET_CONFIG_OPENSSL
 			, m_ssl(NULL)
 #endif // BNET_CONFIG_OPENSSL
+			, m_len(-1)
+			, m_raw(false)
 			, m_tcpHandshake(true)
 			, m_sslHandshake(false)
 		{
