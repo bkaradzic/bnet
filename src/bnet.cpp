@@ -1124,7 +1124,10 @@ namespace bnet
 	{
 #if BX_PLATFORM_XBOX360 || BX_PLATFORM_NACL
 		uint32_t a0, a1, a2, a3;
-		sscanf(_addr, "%d.%d.%d.%d", &a0, &a1, &a2, &a3);
+		if (4 != sscanf(_addr, "%d.%d.%d.%d", &a0, &a1, &a2, &a3))
+		{
+			return 0;
+		}
 		return (a0<<24) | (a1<<16) | (a2<<8) | a3;
 #else
 		uint32_t ip = 0;
