@@ -57,7 +57,7 @@ namespace bnet
 
 #if BNET_CONFIG_OPENSSL
 #else
-	static int sslDumyContext;
+	static int sslDummyContext;
 #endif
 
 	bool isInProgress()
@@ -791,7 +791,7 @@ namespace bnet
 				}
 			}
 #else
-			m_sslCtx = &sslDumyContext;
+			m_sslCtx = &sslDummyContext;
 			BX_UNUSED(_certs);
 #endif // BNET_CONFIG_OPENSSL
 
