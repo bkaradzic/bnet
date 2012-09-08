@@ -401,10 +401,12 @@ namespace bnet
 						for (Message* msg = m_outgoing.peek(); NULL != msg; msg = m_outgoing.peek() )
 						{
 							Internal::Enum id = Internal::Enum(*(msg->data - 2) );
-							if (Internal::None != id
-							&&  !processInternal(id, msg) )
+							if (Internal::None != id)
 							{
-								return;
+								if (!processInternal(id, msg) )
+								{
+									return;
+								}
 							}
 							else if (!send( (char*)msg->data, msg->size) )
 							{
@@ -420,10 +422,12 @@ namespace bnet
 						{
 							Internal::Enum id = Internal::Enum(*(msg->data - 2) );
 							*( (uint16_t*)msg->data - 1) = msg->size;
-							if (Internal::None != id
-							&&  !processInternal(id, msg) )
+							if (Internal::None != id)
 							{
-								return;
+								if (!processInternal(id, msg) )
+								{
+									return;
+								}
 							}
 							else if (!send( (char*)msg->data - 2, msg->size+2) )
 							{
