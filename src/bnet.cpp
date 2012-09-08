@@ -229,6 +229,7 @@ namespace bnet
 
 		void send(Message* _msg)
 		{
+			BX_CHECK(m_raw || _msg->data[0] >= MessageId::UserDefined, "Sending message with MessageId below UserDefined is not allowed!");
 			if (INVALID_SOCKET != m_socket)
 			{
 				m_outgoing.push(_msg);
@@ -931,8 +932,6 @@ namespace bnet
 		{
 			BX_CHECK(_msg->handle == invalidHandle // loopback
 			      || _msg->handle < m_connections->getMaxHandles(), "Invalid handle %d!", _msg->handle);
-
-			BX_CHECK(_msg->data[0] >= MessageId::UserDefined, "Sending message with MessageId below UserDefined is not allowed!");
 
 			if (invalidHandle != _msg->handle)
 			{
