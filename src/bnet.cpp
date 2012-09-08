@@ -119,7 +119,7 @@ namespace bnet
 			g_free(m_incomingBuffer);
 		}
 
-		void connect(uint16_t _handle, const char *_host, uint16_t _port, bool _raw, SSL_CTX* _sslCtx)
+		void connect(uint16_t _handle, uint32_t _ip, const char* _host, uint16_t _port, bool _raw, SSL_CTX* _sslCtx)
 		{
 			init(_handle, _raw);
 
@@ -133,7 +133,17 @@ namespace bnet
 			setSockOpts(m_socket);
 			setNonBlock(m_socket);
 
-			int err = connectsocket(m_socket, _host, _port, _sslCtx != 0);
+			bool ssl = NULL != _sslCtx;
+
+			int err;
+			if (NULL != _host)
+			{
+				err = connectsocket(m_socket, _host, _port, ssl);
+			}
+			else
+			{
+				err = connectsocket(m_socket, _ip, _port, ssl);
+			}
 
 			if (0 != err
 			&&  !(isInProgress() || isWouldBlock() ) )
@@ -146,7 +156,7 @@ namespace bnet
 			}
 
 #if BNET_CONFIG_OPENSSL
-			if (NULL != _sslCtx)
+			if (ssl)
 			{
 				m_sslHandshake = true;
 				m_ssl = SSL_new(_sslCtx);
@@ -856,13 +866,26 @@ namespace bnet
 			return invalidHandle;
 		}
 
+		uint16_t connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure)
+		{
+			Connection* connection = m_connections->create();
+			if (NULL != connection)
+			{
+				uint16_t handle = m_connections->getHandle(connection);
+				connection->connect(handle, _ip, NULL, _port, _raw, _secure?m_sslCtx:NULL);
+				return handle;
+			}
+
+			return invalidHandle;
+		}
+
 		uint16_t connect(const char* _host, uint16_t _port, bool _raw, bool _secure)
 		{
 			Connection* connection = m_connections->create();
 			if (NULL != connection)
 			{
 				uint16_t handle = m_connections->getHandle(connection);
-				connection->connect(handle, _host, _port, _raw, _secure?m_sslCtx:NULL);
+				connection->connect(handle, 0, _host, _port, _raw, _secure?m_sslCtx:NULL);
 				return handle;
 			}
 
@@ -1068,6 +1091,11 @@ namespace bnet
 	void stop(uint16_t _handle)
 	{
 		return s_ctx.stop(_handle);
+	}
+
+	uint16_t connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure)
+	{
+		return s_ctx.connect(_ip, _port, _raw, _secure);
 	}
 
 	uint16_t connect(const char* _host, uint16_t _port, bool _raw, bool _secure)

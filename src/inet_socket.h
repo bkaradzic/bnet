@@ -1,5 +1,29 @@
+/*
+ * Copyright 2010-2012 Branimir Karadzic. All rights reserved.
+ * License: http://www.opensource.org/licenses/BSD-2-Clause
+ */
+
 #ifndef __INET_SOCKET__
 #define __INET_SOCKET__
+
+static int connectsocket(SOCKET socket, uint32_t _ip, uint16_t _port, bool _secure)
+{
+	sockaddr_in addr;
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl(_ip);
+	addr.sin_port = htons(_port);
+	union
+	{
+		sockaddr* sa;
+
+		sockaddr_in* sain;
+
+	} saintosa;
+
+	saintosa.sain = &addr;
+
+	return ::connect(socket, saintosa.sa, sizeof(addr) );
+}
 
 static int connectsocket(SOCKET socket, const char* _host, uint16_t _port, bool _secure)
 {
@@ -8,7 +32,7 @@ static int connectsocket(SOCKET socket, const char* _host, uint16_t _port, bool 
 	addr.sin_addr.s_addr = inet_addr(_host);
 	if (addr.sin_addr.s_addr == INADDR_NONE)
 	{
-		addr.sin_addr.s_addr = htonl(::bnet::toIpv4(_host));
+		addr.sin_addr.s_addr = htonl(::bnet::toIpv4(_host) );
 	}
 	addr.sin_port = htons(_port);
 
@@ -19,7 +43,7 @@ static int connectsocket(SOCKET socket, const char* _host, uint16_t _port, bool 
 	} saintosa;
 	saintosa.sain = &addr;
 	
-	return ::connect(socket, saintosa.sa, sizeof(addr));
+	return ::connect(socket, saintosa.sa, sizeof(addr) );
 }
 
 static bool issocketready(SOCKET socket)

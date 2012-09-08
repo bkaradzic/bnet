@@ -103,6 +103,19 @@ inline int connectsocket(int _fd, const char* _host, uint16_t _port, bool _secur
 	return naclConnect(_fd, _host, _port, _secure);
 }
 
+inline int connectsocket(int _fd, uint32_t _ip, uint16_t _port, bool _secure)
+{
+	char host[32];
+	snprintf(host, sizeof(host), "%d.%d.%d.%d"
+		, _ip>>24
+		, (_ip>>16)&0xff
+		, (_ip>>8)&0xff
+		, _ip&0xff
+		); 
+
+	return naclConnect(_fd, host, _port, _secure);
+}
+
 inline ssize_t send(int _fd, const void* _buf, size_t _n, int _flags)
 {
 	return naclSend(_fd, _buf, _n);
