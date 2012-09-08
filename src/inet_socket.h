@@ -1,7 +1,7 @@
 #ifndef __INET_SOCKET__
 #define __INET_SOCKET__
 
-static int connectsocket(SOCKET socket, const char* _host, uint16_t _port)
+static int connectsocket(SOCKET socket, const char* _host, uint16_t _port, bool _secure)
 {
 	sockaddr_in addr;
 	addr.sin_family = AF_INET;

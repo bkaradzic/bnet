@@ -55,6 +55,11 @@ namespace bnet
 #endif // BX_PLATFORM_
 	}
 
+#if BNET_CONFIG_OPENSSL
+#else
+	static int sslDumyContext;
+#endif
+
 	bool isInProgress()
 	{
 		return EINPROGRESS == getLastError();
@@ -128,7 +133,7 @@ namespace bnet
 			setSockOpts(m_socket);
 			setNonBlock(m_socket);
 
-			int err = connectsocket(m_socket, _host, _port);
+			int err = connectsocket(m_socket, _host, _port, _sslCtx != 0);
 
 			if (0 != err
 			&&  !(isInProgress() || isWouldBlock() ) )
@@ -175,6 +180,7 @@ namespace bnet
 				result = SSL_use_certificate(m_ssl, _cert);
 				result = SSL_use_PrivateKey(m_ssl, _key);
 				result = SSL_set_fd(m_ssl, (int)m_socket);
+				BX_UNUSED(result);
 				SSL_set_accept_state(m_ssl);
 				SSL_read(m_ssl, NULL, 0);
 			}
@@ -770,6 +776,7 @@ namespace bnet
 				}
 			}
 #else
+			m_sslCtx = &sslDumyContext;
 			BX_UNUSED(_certs);
 #endif // BNET_CONFIG_OPENSSL
 
