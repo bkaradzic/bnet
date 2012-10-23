@@ -83,7 +83,7 @@ inline uint16_t ntohs(uint16_t _hostshort)
 
 extern int naclOpenSocket();
 extern void naclCloseSocket(int _fd);
-int naclConnect(int _fd, const char* _host, uint16_t _port, bool _secure);
+int naclConnect(int _fd, uint32_t _ip, uint16_t _port, bool _secure);
 extern ssize_t naclSend(int _fd, const void* _buf, size_t _n);
 extern ssize_t naclRecv(int _fd, void* _buf, size_t _n);
 extern bool naclIsConnected(int _fd);
@@ -98,22 +98,9 @@ inline void closesocket(int _fd)
 	naclCloseSocket(_fd);
 }
 
-inline int connectsocket(int _fd, const char* _host, uint16_t _port, bool _secure)
-{
-	return naclConnect(_fd, _host, _port, _secure);
-}
-
 inline int connectsocket(int _fd, uint32_t _ip, uint16_t _port, bool _secure)
 {
-	char host[32];
-	snprintf(host, sizeof(host), "%d.%d.%d.%d"
-		, _ip>>24
-		, (_ip>>16)&0xff
-		, (_ip>>8)&0xff
-		, _ip&0xff
-		); 
-
-	return naclConnect(_fd, host, _port, _secure);
+	return naclConnect(_fd, _ip, _port, _secure);
 }
 
 inline ssize_t send(int _fd, const void* _buf, size_t _n, int _flags)

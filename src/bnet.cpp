@@ -119,7 +119,7 @@ namespace bnet
 			g_free(m_incomingBuffer);
 		}
 
-		void connect(uint16_t _handle, uint32_t _ip, const char* _host, uint16_t _port, bool _raw, SSL_CTX* _sslCtx)
+		void connect(uint16_t _handle, uint32_t _ip, uint16_t _port, bool _raw, SSL_CTX* _sslCtx)
 		{
 			init(_handle, _raw);
 
@@ -133,17 +133,8 @@ namespace bnet
 			setSockOpts(m_socket);
 			setNonBlock(m_socket);
 
-			bool ssl = NULL != _sslCtx;
-
-			int err;
-			if (NULL != _host)
-			{
-				err = connectsocket(m_socket, _host, _port, ssl);
-			}
-			else
-			{
-				err = connectsocket(m_socket, _ip, _port, ssl);
-			}
+			const bool ssl = _sslCtx != NULL;
+			int err = connectsocket(m_socket, _ip, _port, ssl);
 
 			if (0 != err
 			&&  !(isInProgress() || isWouldBlock() ) )
@@ -872,20 +863,7 @@ namespace bnet
 			if (NULL != connection)
 			{
 				uint16_t handle = m_connections->getHandle(connection);
-				connection->connect(handle, _ip, NULL, _port, _raw, _secure?m_sslCtx:NULL);
-				return handle;
-			}
-
-			return invalidHandle;
-		}
-
-		uint16_t connect(const char* _host, uint16_t _port, bool _raw, bool _secure)
-		{
-			Connection* connection = m_connections->create();
-			if (NULL != connection)
-			{
-				uint16_t handle = m_connections->getHandle(connection);
-				connection->connect(handle, 0, _host, _port, _raw, _secure?m_sslCtx:NULL);
+				connection->connect(handle, _ip, _port, _raw, _secure?m_sslCtx:NULL);
 				return handle;
 			}
 
@@ -1098,11 +1076,6 @@ namespace bnet
 		return s_ctx.connect(_ip, _port, _raw, _secure);
 	}
 
-	uint16_t connect(const char* _host, uint16_t _port, bool _raw, bool _secure)
-	{
-		return s_ctx.connect(_host, _port, _raw, _secure);
-	}
-
 	void disconnect(uint16_t _handle, bool _finish)
 	{
 		s_ctx.disconnect(_handle, _finish);
@@ -1135,13 +1108,20 @@ namespace bnet
 
 	uint32_t toIpv4(const char* _addr)
 	{
-#if BX_PLATFORM_XBOX360 || BX_PLATFORM_NACL
 		uint32_t a0, a1, a2, a3;
-		if (4 != sscanf(_addr, "%d.%d.%d.%d", &a0, &a1, &a2, &a3))
+		char dummy;
+		if (4 == sscanf(_addr, "%d.%d.%d.%d%c", &a0, &a1, &a2, &a3, &dummy)
+			&& a0 <= 0xff
+			&& a1 <= 0xff
+			&& a2 <= 0xff
+			&& a3 <= 0xff)
 		{
-			return 0;
+			return (a0<<24) | (a1<<16) | (a2<<8) | a3;
 		}
-		return (a0<<24) | (a1<<16) | (a2<<8) | a3;
+
+#if BX_PLATFORM_XBOX360 || BX_PLATFORM_NACL
+		// No DNS resolution on these platforms
+		return 0;
 #else
 		uint32_t ip = 0;
 		struct addrinfo* result = NULL;

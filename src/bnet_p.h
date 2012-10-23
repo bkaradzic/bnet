@@ -86,7 +86,6 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 #	include "inet_socket.h"
 #elif BX_PLATFORM_NACL
 #	include <errno.h> // errno
-#	include <stdio.h> // sscanf
 #	include <string.h>
 #	include <sys/time.h> // gettimeofday
 #	include <sys/types.h> // fd_set
@@ -99,6 +98,7 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 #include <bx/timer.h>
 
 #include <new> // placement new
+#include <stdio.h> // sscanf
 
 #if BNET_CONFIG_OPENSSL
 #	include <openssl/err.h>
