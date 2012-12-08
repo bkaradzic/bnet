@@ -15,9 +15,9 @@
 #	define snprintf _snprintf
 #endif // snprintf
 
-uint16_t httpSendRequest(uint32_t _ip, uint16_t _port, const char* _request, bool secure)
+bnet::Handle httpSendRequest(uint32_t _ip, uint16_t _port, const char* _request, bool secure)
 {
-	uint16_t handle = bnet::connect(_ip, _port, true, secure);
+	bnet::Handle handle = bnet::connect(_ip, _port, true, secure);
 
 	bnet::Message* out = bnet::alloc(handle, (uint32_t)strlen(_request) );
 	memcpy(out->data, _request, out->size);
@@ -106,12 +106,12 @@ int main(int _argc, const char* _argv[])
 				, tokens[UrlToken::Host]
 				);
 
-		uint16_t handle = httpSendRequest(ip, port, header, secure);
+		bnet::Handle handle = httpSendRequest(ip, port, header, secure);
 
 		uint32_t size = 0;
 		uint8_t* data = NULL;
 
-		bool cont = bnet::invalidHandle != handle;
+		bool cont = bnet::isValid(handle);
 		if (cont)
 		{
 			printf("Connecting to %s (%d.%d.%d.%d:%d)\n"

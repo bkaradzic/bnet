@@ -26,8 +26,8 @@ namespace bnet
 		::free(_ptr);
 	}
 
-	reallocFn g_realloc = reallocStub;
-	freeFn g_free = freeStub;
+	ReallocFn g_realloc = reallocStub;
+	FreeFn g_free = freeStub;
 
 #if BNET_CONFIG_OPENSSL && BNET_CONFIG_DEBUG
 
@@ -119,7 +119,7 @@ namespace bnet
 			g_free(m_incomingBuffer);
 		}
 
-		void connect(uint16_t _handle, uint32_t _ip, uint16_t _port, bool _raw, SSL_CTX* _sslCtx)
+		void connect(Handle _handle, uint32_t _ip, uint16_t _port, bool _raw, SSL_CTX* _sslCtx)
 		{
 			init(_handle, _raw);
 
@@ -160,14 +160,14 @@ namespace bnet
 #endif // BNET_CONFIG_OPENSSL
 		}
 
-		void accept(uint16_t _handle, uint16_t _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, SSL_CTX* _sslCtx, X509* _cert, EVP_PKEY* _key)
+		void accept(Handle _handle, Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, SSL_CTX* _sslCtx, X509* _cert, EVP_PKEY* _key)
 		{
 			init(_handle, _raw);
 			
 			m_socket = _socket;
 			Message* msg = msgAlloc(m_handle, 9, true);
 			msg->data[0] = MessageId::IncomingConnection;
-			*( (uint16_t*)&msg->data[1]) = _listenHandle;
+			*( (uint16_t*)&msg->data[1]) = _listenHandle.idx;
 			*( (uint32_t*)&msg->data[3]) = _ip;
 			*( (uint16_t*)&msg->data[7]) = _port;
 			ctxPush(msg);
@@ -253,7 +253,7 @@ namespace bnet
 		}
 
 	private:
-		void init(uint16_t _handle, bool _raw)
+		void init(Handle _handle, bool _raw)
 		{
 			m_handle = _handle;
 			m_tcpHandshake = true;
@@ -599,7 +599,7 @@ namespace bnet
 
 		uint64_t m_tcpHandshakeTimeout;
 		SOCKET m_socket;
-		uint16_t m_handle;
+		Handle m_handle;
 		uint8_t* m_incomingBuffer;
 		RingBufferControl m_incoming;
 		RecvRingBuffer m_recv;
@@ -657,7 +657,7 @@ namespace bnet
 #endif // BNET_CONFIG_OPENSSL
 		}
 
-		void listen(uint16_t _handle, uint32_t _ip, uint16_t _port, bool _raw, const char* _cert, const char* _key)
+		void listen(Handle _handle, uint32_t _ip, uint16_t _port, bool _raw, const char* _cert, const char* _key)
 		{
 			m_handle = _handle;
 			m_raw = _raw;
@@ -735,7 +735,7 @@ namespace bnet
 	private:
 		sockaddr_in m_addr;
 		SOCKET m_socket;
-		uint16_t m_handle;
+		Handle m_handle;
 		bool m_raw;
 		bool m_secure;
 		X509* m_cert;
@@ -823,12 +823,12 @@ namespace bnet
 #endif // BNET_CONFIG_OPENSSL
 		}
 
-		uint16_t listen(uint32_t _ip, uint16_t _port, bool _raw, const char* _cert, const char* _key)
+		Handle listen(uint32_t _ip, uint16_t _port, bool _raw, const char* _cert, const char* _key)
 		{
 			ListenSocket* listenSocket = m_listenSockets->create();
 			if (NULL != listenSocket)
 			{
-				uint16_t handle = m_listenSockets->getHandle(listenSocket);
+				Handle handle = { m_listenSockets->getHandle(listenSocket) };
 				listenSocket->listen(handle, _ip, _port, _raw, _cert, _key);
 				return handle;
 			}
@@ -836,19 +836,19 @@ namespace bnet
 			return invalidHandle;
 		}
 
-		void stop(uint16_t _handle)
+		void stop(Handle _handle)
 		{
-			ListenSocket* listenSocket = m_listenSockets->getFromHandle(_handle);
+			ListenSocket* listenSocket = { m_listenSockets->getFromHandle(_handle.idx) };
 			listenSocket->close();
 			m_listenSockets->destroy(listenSocket);
 		}
 
-		uint16_t accept(uint16_t _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, X509* _cert, EVP_PKEY* _key)
+		Handle accept(Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, X509* _cert, EVP_PKEY* _key)
 		{
 			Connection* connection = m_connections->create();
 			if (NULL != connection)
 			{
-				uint16_t handle = m_connections->getHandle(connection);
+				Handle handle = { m_connections->getHandle(connection) };
 				bool secure = NULL != _cert && NULL != _key;
 				connection->accept(handle, _listenHandle, _socket, _ip, _port, _raw, secure?m_sslCtx:NULL, _cert, _key);
 				return handle;
@@ -857,12 +857,12 @@ namespace bnet
 			return invalidHandle;
 		}
 
-		uint16_t connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure)
+		Handle connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure)
 		{
 			Connection* connection = m_connections->create();
 			if (NULL != connection)
 			{
-				uint16_t handle = m_connections->getHandle(connection);
+				Handle handle = { m_connections->getHandle(connection) };
 				connection->connect(handle, _ip, _port, _raw, _secure?m_sslCtx:NULL);
 				return handle;
 			}
@@ -870,11 +870,11 @@ namespace bnet
 			return invalidHandle;
 		}
 
-		void disconnect(uint16_t _handle, bool _finish)
+		void disconnect(Handle _handle, bool _finish)
 		{
-			BX_CHECK(_handle < m_connections->getMaxHandles(), "Invalid handle %d!", _handle);
+			BX_CHECK(_handle.idx < m_connections->getMaxHandles(), "Invalid handle %d!", _handle.idx);
 
-			Connection* connection = m_connections->getFromHandle(_handle);
+			Connection* connection = { m_connections->getFromHandle(_handle.idx) };
 			if (_finish
 			&&  connection->hasSocket() )
 			{
@@ -893,16 +893,16 @@ namespace bnet
 			}
 		}
 
-		void notify(uint16_t _handle, uint64_t _userData)
+		void notify(Handle _handle, uint64_t _userData)
 		{
-			BX_CHECK(_handle == invalidHandle // loopback
-			      || _handle < m_connections->getMaxHandles(), "Invalid handle %d!", _handle);
+			BX_CHECK(_handle.idx == invalidHandle.idx // loopback
+			      || _handle.idx < m_connections->getMaxHandles(), "Invalid handle %d!", _handle.idx);
 
-			if (invalidHandle != _handle)
+			if (invalidHandle.idx != _handle.idx)
 			{
 				Message* msg = msgAlloc(_handle, sizeof(_userData), false, Internal::Notify);
 				memcpy(msg->data, &_userData, sizeof(_userData) );
-				Connection* connection = m_connections->getFromHandle(_handle);
+				Connection* connection = m_connections->getFromHandle(_handle.idx);
 				connection->send(msg);
 			}
 			else
@@ -917,12 +917,12 @@ namespace bnet
 
 		void send(Message* _msg)
 		{
-			BX_CHECK(_msg->handle == invalidHandle // loopback
-			      || _msg->handle < m_connections->getMaxHandles(), "Invalid handle %d!", _msg->handle);
+			BX_CHECK(_msg->handle.idx == invalidHandle.idx // loopback
+			      || _msg->handle.idx < m_connections->getMaxHandles(), "Invalid handle %d!", _msg->handle.idx);
 
-			if (invalidHandle != _msg->handle)
+			if (invalidHandle.idx != _msg->handle.idx)
 			{
-				Connection* connection = m_connections->getFromHandle(_msg->handle);
+				Connection* connection = m_connections->getFromHandle(_msg->handle.idx);
 				connection->send(_msg);
 			}
 			else
@@ -953,12 +953,12 @@ namespace bnet
 
 			while (NULL != msg)
 			{
-				if (invalidHandle == msg->handle) // loopback
+				if (invalidHandle.idx == msg->handle.idx) // loopback
 				{
 					return msg;
 				}
 
-				Connection* connection = m_connections->getFromHandle(msg->handle);
+				Connection* connection = m_connections->getFromHandle(msg->handle.idx);
 
 				uint8_t id = msg->data[0];
 				if (0 == id
@@ -992,8 +992,8 @@ namespace bnet
 #if BNET_CONFIG_OPENSSL
 		typedef void* (*mallocFn)(size_t _size);
 		mallocFn m_sslMalloc;
-		reallocFn m_sslRealloc;
-		freeFn m_sslFree;
+		ReallocFn m_sslRealloc;
+		FreeFn m_sslFree;
 #endif // BNET_CONFIG_OPENSSL
 
 		SSL_CTX* m_sslCtx;
@@ -1001,12 +1001,12 @@ namespace bnet
 
 	static Context s_ctx;
 	
-	uint16_t ctxAccept(uint16_t _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, X509* _cert, EVP_PKEY* _key)
+	Handle ctxAccept(Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, X509* _cert, EVP_PKEY* _key)
 	{
 		return s_ctx.accept(_listenHandle, _socket, _ip, _port, _raw, _cert, _key);
 	}
 
-	void ctxPush(uint16_t _handle, MessageId::Enum _id)
+	void ctxPush(Handle _handle, MessageId::Enum _id)
 	{
 		Message* msg = msgAlloc(_handle, 1, true);
 		msg->data[0] = _id;
@@ -1018,7 +1018,7 @@ namespace bnet
 		s_ctx.push(_msg);
 	}
 
-	Message* msgAlloc(uint16_t _handle, uint16_t _size, bool _incoming, Internal::Enum _type)
+	Message* msgAlloc(Handle _handle, uint16_t _size, bool _incoming, Internal::Enum _type)
 	{
 		uint16_t offset = _incoming ? 0 : 2;
 		Message* msg = (Message*)g_realloc(NULL, sizeof(Message) + offset + _size);
@@ -1035,7 +1035,7 @@ namespace bnet
 		g_free(_msg);
 	}
 
-	void init(uint16_t _maxConnections, uint16_t _maxListenSockets, const char* _certs[], reallocFn _realloc, freeFn _free)
+	void init(uint16_t _maxConnections, uint16_t _maxListenSockets, const char* _certs[], ReallocFn _realloc, FreeFn _free)
 	{
 		if (NULL != _realloc
 		&&  NULL != _free)
@@ -1061,32 +1061,32 @@ namespace bnet
 #endif // BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
 	}
 
-	uint16_t listen(uint32_t _ip, uint16_t _port, bool _raw, const char* _cert, const char* _key)
+	Handle listen(uint32_t _ip, uint16_t _port, bool _raw, const char* _cert, const char* _key)
 	{
 		return s_ctx.listen(_ip, _port, _raw, _cert, _key);
 	}
 
-	void stop(uint16_t _handle)
+	void stop(Handle _handle)
 	{
 		return s_ctx.stop(_handle);
 	}
 
-	uint16_t connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure)
+	Handle connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure)
 	{
 		return s_ctx.connect(_ip, _port, _raw, _secure);
 	}
 
-	void disconnect(uint16_t _handle, bool _finish)
+	void disconnect(Handle _handle, bool _finish)
 	{
 		s_ctx.disconnect(_handle, _finish);
 	}
 
-	void notify(uint16_t _handle, uint64_t _userData)
+	void notify(Handle _handle, uint64_t _userData)
 	{
 		s_ctx.notify(_handle, _userData);
 	}
 
-	OutgoingMessage* alloc(uint16_t _handle, uint16_t _size)
+	OutgoingMessage* alloc(Handle _handle, uint16_t _size)
 	{
 		return msgAlloc(_handle, _size);
 	}
@@ -1111,10 +1111,10 @@ namespace bnet
 		uint32_t a0, a1, a2, a3;
 		char dummy;
 		if (4 == sscanf(_addr, "%d.%d.%d.%d%c", &a0, &a1, &a2, &a3, &dummy)
-			&& a0 <= 0xff
-			&& a1 <= 0xff
-			&& a2 <= 0xff
-			&& a3 <= 0xff)
+		&&  a0 <= 0xff
+		&&  a1 <= 0xff
+		&&  a2 <= 0xff
+		&&  a3 <= 0xff)
 		{
 			return (a0<<24) | (a1<<16) | (a2<<8) | a3;
 		}

@@ -85,7 +85,7 @@ int main(int _argc, const char* _argv[])
 
 		const char* host = cmdLine.findOption('h', "host");
 		uint32_t ip = bnet::toIpv4(NULL == host ? "localhost" : host);
-		uint16_t handle = bnet::connect(ip, port, false, true);
+		bnet::Handle handle = bnet::connect(ip, port, false, true);
 
 		const char* hello = "hello there!";
 		uint16_t len = (uint16_t)strlen(hello);
@@ -113,7 +113,7 @@ int main(int _argc, const char* _argv[])
 				case bnet::MessageId::IncomingConnection:
 					{
 						{
-							uint16_t listen = *( (uint16_t*)&msg->data[1]);
+							bnet::Handle listen = { *( (uint16_t*)&msg->data[1]) };
 							uint32_t ip = *( (uint32_t*)&msg->data[3]);
 							uint16_t port = *( (uint16_t*)&msg->data[7]);
 
@@ -156,7 +156,7 @@ int main(int _argc, const char* _argv[])
 			{
 				printMsg(msg);
 
-				uint16_t handle = msg->handle;
+				bnet::Handle handle = msg->handle;
 
 				{
 					const char* ping = "ping!";

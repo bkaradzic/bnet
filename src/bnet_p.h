@@ -114,8 +114,8 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 
 namespace bnet
 {
-	extern reallocFn g_realloc;
-	extern freeFn g_free;
+	extern ReallocFn g_realloc;
+	extern FreeFn g_free;
 
 	struct Internal
 	{
@@ -138,10 +138,10 @@ namespace bnet
 		};
 	};
 
-	uint16_t ctxAccept(uint16_t _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, X509* _cert, EVP_PKEY* _key);
-	void ctxPush(uint16_t _handle, MessageId::Enum _id);
+	Handle ctxAccept(Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, X509* _cert, EVP_PKEY* _key);
+	void ctxPush(Handle _handle, MessageId::Enum _id);
 	void ctxPush(Message* _msg);
-	Message* msgAlloc(uint16_t _handle, uint16_t _size, bool _incoming = false, Internal::Enum _type = Internal::None);
+	Message* msgAlloc(Handle _handle, uint16_t _size, bool _incoming = false, Internal::Enum _type = Internal::None);
 	void msgRelease(Message* _msg);
 
 	template<typename Ty> class FreeList
