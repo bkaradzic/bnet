@@ -3,7 +3,8 @@ project "bnet"
 	kind "StaticLib"
 
 	includedirs {
-		BNET_DIR .. "../bx/include",
+		BX_DIR .. "include",
+		BNET_DIR .. "include",
 	}
 
 	configuration { "x32", "vs*" }
@@ -27,10 +28,6 @@ project "bnet"
 		}
 
 	configuration {}
-
-	includedirs {
-		BNET_DIR .. "include",
-	}
 
 	files {
 		BNET_DIR .. "include/**.h",

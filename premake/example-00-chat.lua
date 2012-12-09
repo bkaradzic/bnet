@@ -1,14 +1,17 @@
-project "http"
-	uuid "35161d20-ab2b-11e0-9f1c-0800200c9a66"
+project "example-00-chat"
+	uuid "1544c710-ad76-11e0-9f1c-0800200c9a66"
 	kind "ConsoleApp"
 
+	debugdir (BNET_DIR .. "examples/runtime/")
+
 	includedirs {
+		BX_DIR .. "include",
 		BNET_DIR .. "include",
 	}
 
 	files {
 		BNET_DIR .. "examples/common/**",
-		BNET_DIR .. "examples/http/http.cpp"
+		BNET_DIR .. "examples/00-chat/chat.cpp"
 	}
 
 	links {
