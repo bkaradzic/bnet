@@ -8,12 +8,9 @@
 #include <stdint.h>
 #include <set>
 #include <malloc.h>
+#include <bx/string.h>
 #include "bnet.h"
 #include "../common/url.h"
-
-#ifndef snprintf
-#	define snprintf _snprintf
-#endif // snprintf
 
 bnet::Handle httpSendRequest(uint32_t _ip, uint16_t _port, const char* _request, bool secure)
 {
@@ -80,11 +77,11 @@ int main(int _argc, const char* _argv[])
 
 	bool secure = false;
 	uint16_t port = 0;
-	if (0 == _stricmp(tokens[UrlToken::Scheme], "http") )
+	if (0 == bx::stricmp(tokens[UrlToken::Scheme], "http") )
 	{
 		port = 80;
 	}
-	else if (0 == _stricmp(tokens[UrlToken::Scheme], "https") )
+	else if (0 == bx::stricmp(tokens[UrlToken::Scheme], "https") )
 	{
 		port = 443;
 		secure = true;
@@ -99,7 +96,7 @@ int main(int _argc, const char* _argv[])
 		}
 
 		char header[1024];
-		snprintf(header
+		bx::snprintf(header
 				, sizeof(header)
 				, "GET /%s HTTP/1.0\r\nHost: %s\r\n\r\n"
 				, tokens[UrlToken::Path]
