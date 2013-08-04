@@ -31,7 +31,6 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 				} while(0)
 #endif // 0
 
-#define BX_NAMESPACE 1
 #include <bx/bx.h>
 
 #ifndef BNET_CONFIG_OPENSSL
@@ -226,13 +225,13 @@ namespace bnet
 
 	private:
 		void* m_memBlock;
-		HandleAlloc m_allocator;
+		bx::HandleAlloc m_allocator;
 	};
 
 	class RecvRingBuffer
 	{
 	public:
-		RecvRingBuffer(RingBufferControl& _control, char* _buffer)
+		RecvRingBuffer(bx::RingBufferControl& _control, char* _buffer)
 			: m_control(_control)
 			, m_write(_control.m_current)
 			, m_reserved(0)
@@ -298,7 +297,7 @@ namespace bnet
 		RecvRingBuffer(const RecvRingBuffer&);
 		void operator=(const RecvRingBuffer&);
 
-		RingBufferControl& m_control;
+		bx::RingBufferControl& m_control;
 		uint32_t m_write;
 		uint32_t m_reserved;
 		char* m_buffer;

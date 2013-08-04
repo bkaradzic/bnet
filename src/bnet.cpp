@@ -258,16 +258,16 @@ namespace bnet
 			m_handle = _handle;
 			m_tcpHandshake = true;
 			m_sslHandshake = false;
-			m_tcpHandshakeTimeout = getHPCounter() + getHPFrequency()*BNET_CONFIG_CONNECT_TIMEOUT_SECONDS;
+			m_tcpHandshakeTimeout = bx::getHPCounter() + bx::getHPFrequency()*BNET_CONFIG_CONNECT_TIMEOUT_SECONDS;
 			m_len = -1;
 			m_raw = _raw;
 
 			BX_TRACE("init %d", m_handle);
 		}
 
-		void read(WriteRingBuffer& _out, uint32_t _len)
+		void read(bx::WriteRingBuffer& _out, uint32_t _len)
 		{
-			ReadRingBuffer incoming(m_incoming, (char*)m_incomingBuffer, _len);
+			bx::ReadRingBuffer incoming(m_incoming, (char*)m_incomingBuffer, _len);
 			_out.write(incoming, _len);
 			incoming.end();
 		}
@@ -279,14 +279,14 @@ namespace bnet
 
 		void read(char* _data, uint32_t _len)
 		{
-			ReadRingBuffer incoming(m_incoming, (char*)m_incomingBuffer, _len);
+			bx::ReadRingBuffer incoming(m_incoming, (char*)m_incomingBuffer, _len);
 			incoming.read(_data, _len);
 			incoming.end();
 		}
 
 		void peek(char* _data, uint32_t _len)
 		{
-			ReadRingBuffer incoming(m_incoming, (char*)m_incomingBuffer, _len);
+			bx::ReadRingBuffer incoming(m_incoming, (char*)m_incomingBuffer, _len);
 			incoming.read(_data, _len);
 		}
 
@@ -294,7 +294,7 @@ namespace bnet
 		{
 			if (m_raw)
 			{
-				uint32_t available = uint32_min(m_incoming.available(), maxMessageSize-1);
+				uint32_t available = bx::uint32_min(m_incoming.available(), maxMessageSize-1);
 
 				if (0 < available)
 				{
@@ -306,7 +306,7 @@ namespace bnet
 			}
 			else
 			{
-				uint32_t available = uint32_min(m_incoming.available(), maxMessageSize);
+				uint32_t available = bx::uint32_min(m_incoming.available(), maxMessageSize);
 
 				while (0 < available)
 				{
@@ -350,7 +350,7 @@ namespace bnet
 						}
 					}
 					
-					available = uint32_min(m_incoming.available(), maxMessageSize);
+					available = bx::uint32_min(m_incoming.available(), maxMessageSize);
 				}
 			}
 		}
@@ -477,7 +477,7 @@ namespace bnet
 				return true;
 			}
 
-			uint64_t now = getHPCounter();
+			uint64_t now = bx::getHPCounter();
 			if (now > m_tcpHandshakeTimeout)
 			{
 				BX_TRACE("Disconnect %d - Connect timeout.", m_handle);
@@ -601,7 +601,7 @@ namespace bnet
 		SOCKET m_socket;
 		Handle m_handle;
 		uint8_t* m_incomingBuffer;
-		RingBufferControl m_incoming;
+		bx::RingBufferControl m_incoming;
 		RecvRingBuffer m_recv;
 		MessageQueue m_outgoing;
 #if BNET_CONFIG_OPENSSL
