@@ -3,8 +3,8 @@
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
 
-#ifndef __NACL_SOCKET__
-#define __NACL_SOCKET__
+#ifndef BNET_NACL_SOCKET_H_HEADER_GUARD
+#define BNET_NACL_SOCKET_H_HEADER_GUARD
 
 #include <bx/endian.h>
 
@@ -159,4 +159,4 @@ inline void freeaddrinfo(struct addrinfo* _ai)
 {
 }
 
-#endif // __NACL_SOCKET__
+#endif // BNET_NACL_SOCKET_H_HEADER_GUARD

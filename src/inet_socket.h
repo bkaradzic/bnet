@@ -3,8 +3,8 @@
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
 
-#ifndef __INET_SOCKET__
-#define __INET_SOCKET__
+#ifndef BNET_INET_SOCKET_H_HEADER_GUARD
+#define BNET_INET_SOCKET_H_HEADER_GUARD
 
 static int connectsocket(SOCKET socket, uint32_t _ip, uint16_t _port, bool _secure)
 {
@@ -40,4 +40,4 @@ static bool issocketready(SOCKET socket)
 	return result > 0;
 }
 
-#endif // __INET_SOCKET__
+#endif // BNET_INET_SOCKET_H_HEADER_GUARD

@@ -1,15 +1,18 @@
 /*
- * Copyright 2010-2012 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2013 Branimir Karadzic. All rights reserved.
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
+
+#include <bnet.h>
 
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <set>
 #include <malloc.h>
+
 #include <bx/string.h>
-#include "bnet.h"
+
 #include "../common/url.h"
 
 bnet::Handle httpSendRequest(uint32_t _ip, uint16_t _port, const char* _request, bool secure)
@@ -68,8 +71,8 @@ int main(int _argc, const char* _argv[])
 {
 	bnet::init(1, 0, s_cert);
 
-//	const char* url = "http://gravatar.com/avatar/cc47d6856403a62afc5c74d269b7e610.png";
-	const char* url = "https://encrypted.google.com/";
+	const char* url = "http://gravatar.com/avatar/cc47d6856403a62afc5c74d269b7e610.png";
+//	const char* url = "https://encrypted.google.com/";
 
 	char* tokens[UrlToken::Count];
 	char temp[1024];

@@ -7,27 +7,8 @@
 
 namespace bnet
 {
-	void* mallocStub(size_t _size)
-	{
-		return g_realloc(NULL, _size);
-	}
-
-	void* reallocStub(void* _ptr, size_t _size)
-	{
-		void* ptr = ::realloc(_ptr, _size);
-		BX_CHECK(NULL != ptr, "Out of memory!");
-		//	BX_TRACE("alloc %d, %p", _size, ptr);
-		return ptr;
-	}
-
-	void freeStub(void* _ptr)
-	{
-		// 	BX_TRACE("free %p", _ptr);
-		::free(_ptr);
-	}
-
-	ReallocFn g_realloc = reallocStub;
-	FreeFn g_free = freeStub;
+	static bx::CrtAllocator s_allocatorStub;
+	bx::ReallocatorI* g_allocator = &s_allocatorStub;
 
 #if BNET_CONFIG_OPENSSL && BNET_CONFIG_DEBUG
 
@@ -99,7 +80,7 @@ namespace bnet
 		Connection()
 			: m_socket(INVALID_SOCKET)
 			, m_handle(invalidHandle)
-			, m_incomingBuffer( (uint8_t*)g_realloc(NULL, BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE) )
+			, m_incomingBuffer( (uint8_t*)BX_ALLOC(g_allocator, BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE) )
 			, m_incoming(BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE)
 			, m_recv(m_incoming, (char*)m_incomingBuffer)
 #if BNET_CONFIG_OPENSSL
@@ -116,7 +97,7 @@ namespace bnet
 		~Connection()
 		{
 			BX_TRACE("dtor %d", m_handle);
-			g_free(m_incomingBuffer);
+			BX_FREE(g_allocator, m_incomingBuffer);
 		}
 
 		void connect(Handle _handle, uint32_t _ip, uint16_t _port, bool _raw, SSL_CTX* _sslCtx)
@@ -762,7 +743,7 @@ namespace bnet
 		{
 #if BNET_CONFIG_OPENSSL
 			CRYPTO_get_mem_functions(&m_sslMalloc, &m_sslRealloc, &m_sslFree);
-			CRYPTO_set_mem_functions(mallocStub, g_realloc, g_free);
+			CRYPTO_set_mem_functions(sslMalloc, sslRealloc, sslFree);
 			SSL_library_init();
 #	if BNET_CONFIG_DEBUG
 			SSL_load_error_strings();
@@ -788,13 +769,11 @@ namespace bnet
 
 			_maxConnections = _maxConnections == 0 ? 1 : _maxConnections;
 
-			void* connections = g_realloc(NULL, sizeof(Connections) );
-			m_connections = ::new(connections) Connections(_maxConnections);
+			m_connections = BX_NEW(g_allocator, Connections)(_maxConnections);
 
 			if (0 != _maxListenSockets)
 			{
-				void* listenSockets = g_realloc(NULL, sizeof(ListenSockets) );
-				m_listenSockets = ::new(listenSockets) ListenSockets(_maxListenSockets);
+				m_listenSockets = BX_NEW(g_allocator, ListenSockets)(_maxListenSockets);
 			}
 		}
 
@@ -805,13 +784,11 @@ namespace bnet
 				release(msg);
 			}
 
-			m_connections->~Connections();
-			g_free(m_connections);
+			BX_DELETE(g_allocator, m_connections);
 
 			if (NULL != m_listenSockets)
 			{
-				m_listenSockets->~ListenSockets();
-				g_free(m_listenSockets);
+				BX_DELETE(g_allocator, m_listenSockets);
 			}
 
 #if BNET_CONFIG_OPENSSL
@@ -990,9 +967,28 @@ namespace bnet
 		MessageQueue m_incoming;
 
 #if BNET_CONFIG_OPENSSL
-		typedef void* (*mallocFn)(size_t _size);
-		mallocFn m_sslMalloc;
+		static void* sslMalloc(size_t _size)
+		{
+			return BX_ALLOC(g_allocator, _size);
+		}
+
+		static void* sslRealloc(void* _ptr, size_t _size)
+		{
+			return BX_REALLOC(g_allocator, _ptr, _size);
+		}
+
+		static void sslFree(void* _ptr)
+		{
+			return BX_FREE(g_allocator, _ptr);
+		}
+
+		typedef void* (*MallocFn)(size_t _size);
+		MallocFn m_sslMalloc;
+
+		typedef void* (*ReallocFn)(void* _ptr, size_t _size);
 		ReallocFn m_sslRealloc;
+
+		typedef void (*FreeFn)(void* _ptr);
 		FreeFn m_sslFree;
 #endif // BNET_CONFIG_OPENSSL
 
@@ -1021,7 +1017,7 @@ namespace bnet
 	Message* msgAlloc(Handle _handle, uint16_t _size, bool _incoming, Internal::Enum _type)
 	{
 		uint16_t offset = _incoming ? 0 : 2;
-		Message* msg = (Message*)g_realloc(NULL, sizeof(Message) + offset + _size);
+		Message* msg = (Message*)BX_ALLOC(g_allocator, sizeof(Message) + offset + _size);
 		msg->size = _size;
 		msg->handle = _handle;
 		uint8_t* data = (uint8_t*)msg + sizeof(Message);
@@ -1032,16 +1028,14 @@ namespace bnet
 
 	void msgRelease(Message* _msg)
 	{
-		g_free(_msg);
+		BX_FREE(g_allocator, _msg);
 	}
 
-	void init(uint16_t _maxConnections, uint16_t _maxListenSockets, const char* _certs[], ReallocFn _realloc, FreeFn _free)
+	void init(uint16_t _maxConnections, uint16_t _maxListenSockets, const char* _certs[], bx::ReallocatorI* _allocator)
 	{
-		if (NULL != _realloc
-		&&  NULL != _free)
+		if (NULL != _allocator)
 		{
-			g_realloc = _realloc;
-			g_free = _free;
+			g_allocator = _allocator;
 		}
 
 #if BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360

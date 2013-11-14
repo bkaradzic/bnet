@@ -3,13 +3,15 @@
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
 
-#ifndef __BNET_H__
-#define __BNET_H__
+#ifndef BNET_H_HEADER_GUARD
+#define BNET_H_HEADER_GUARD
 
 #include <stdint.h> // uint32_t
 #include <stdlib.h> // size_t
 
 #define BNET_HANDLE(_name) struct _name { uint16_t idx; }
+
+namespace bx { struct ReallocatorI; }
 
 namespace bnet
 {
@@ -43,14 +45,11 @@ namespace bnet
 	typedef Message IncomingMessage;
 	typedef Message OutgoingMessage;
 
-	typedef void* (*ReallocFn)(void* _ptr, size_t _size);
-	typedef void (*FreeFn)(void* _ptr);
-
 	/// Returns is handle is valid.
 	inline bool isValid(Handle _handle) { return invalidHandle.idx != _handle.idx; }
 
 	/// Initialize networking.
-	void init(uint16_t _maxConnections, uint16_t _maxListenSockets = 0, const char* _certs[] = NULL, ReallocFn _realloc = NULL, FreeFn _free = NULL);
+	void init(uint16_t _maxConnections, uint16_t _maxListenSockets = 0, const char* _certs[] = NULL, bx::ReallocatorI* _allocator = NULL);
 
 	/// Shutdown networking.
 	void shutdown();
@@ -87,4 +86,4 @@ namespace bnet
 
 } // namespace bnet
 
-#endif // __BNET_H__
+#endif // BNET_H_HEADER_GUARD

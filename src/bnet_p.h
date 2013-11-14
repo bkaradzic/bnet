@@ -3,8 +3,8 @@
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
 
-#ifndef __BNET_P_H__
-#define __BNET_P_H__
+#ifndef BNET_P_H_HEADER_GUARD
+#define BNET_P_H_HEADER_GUARD
 
 #include "bnet.h"
 
@@ -95,6 +95,7 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 #include <bx/handlealloc.h>
 #include <bx/ringbuffer.h>
 #include <bx/timer.h>
+#include <bx/allocator.h>
 
 #include <new> // placement new
 #include <stdio.h> // sscanf
@@ -113,9 +114,6 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 
 namespace bnet
 {
-	extern ReallocFn g_realloc;
-	extern FreeFn g_free;
-
 	struct Internal
 	{
 		enum Enum
@@ -143,24 +141,26 @@ namespace bnet
 	Message* msgAlloc(Handle _handle, uint16_t _size, bool _incoming = false, Internal::Enum _type = Internal::None);
 	void msgRelease(Message* _msg);
 
-	template<typename Ty> class FreeList
+	template<typename Ty>
+	class FreeList
 	{
 	public:
 		FreeList(uint16_t _max)
-			: m_allocator(_max)
 		{
-			m_memBlock = g_realloc(NULL, _max*sizeof(Ty) );
+			m_memBlock = BX_ALLOC(g_allocator, _max*sizeof(Ty) );
+			m_handleAlloc = bx::createHandleAlloc(g_allocator, _max);
 		}
 
 		~FreeList()
 		{
-			g_free(m_memBlock);
+			bx::destroyHandleAlloc(g_allocator, m_handleAlloc);
+			BX_FREE(g_allocator, m_memBlock);
 		}
 
 		Ty* create()
 		{
 			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
-			Ty* obj = &first[m_allocator.alloc()];
+			Ty* obj = &first[m_handleAlloc->alloc()];
 			obj = ::new (obj) Ty;
 			return obj;
 		}
@@ -168,7 +168,7 @@ namespace bnet
 		template<typename Arg0> Ty* create(Arg0 _a0)
 		{
 			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
-			Ty* obj = &first[m_allocator.alloc()];
+			Ty* obj = &first[m_handleAlloc->alloc()];
 			obj = ::new (obj) Ty(_a0);
 			return obj;
 		}
@@ -176,7 +176,7 @@ namespace bnet
 		template<typename Arg0, typename Arg1> Ty* create(Arg0 _a0, Arg1 _a1)
 		{
 			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
-			Ty* obj = &first[m_allocator.alloc()];
+			Ty* obj = &first[m_handleAlloc->alloc()];
 			obj = ::new (obj) Ty(_a0, _a1);
 			return obj;
 		}
@@ -184,7 +184,7 @@ namespace bnet
 		template<typename Arg0, typename Arg1, typename Arg2> Ty* create(Arg0 _a0, Arg1 _a1, Arg2 _a2)
 		{
 			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
-			Ty* obj = &first[m_allocator.alloc()];
+			Ty* obj = &first[m_handleAlloc->alloc()];
 			obj = ::new (obj) Ty(_a0, _a1, _a2);
 			return obj;
 		}
@@ -192,7 +192,7 @@ namespace bnet
 		void destroy(Ty* _obj)
 		{
 			_obj->~Ty();
-			m_allocator.free(getHandle(_obj) );
+			m_handleAlloc->free(getHandle(_obj) );
 		}
 
 		uint16_t getHandle(Ty* _obj) const
@@ -209,27 +209,32 @@ namespace bnet
 
 		uint16_t getNumHandles() const
 		{
-			return m_allocator.getNumHandles();
+			return m_handleAlloc->getNumHandles();
 		}
 
 		uint16_t getMaxHandles() const
 		{
-			return m_allocator.getMaxHandles();
+			return m_handleAlloc->getMaxHandles();
 		}
 
 		Ty* getFromHandleAt(uint16_t _at)
 		{
-			uint16_t handle = m_allocator.getHandleAt(_at);
+			uint16_t handle = m_handleAlloc->getHandleAt(_at);
 			return getFromHandle(handle);
 		}
 
 	private:
 		void* m_memBlock;
-		bx::HandleAlloc m_allocator;
+		bx::HandleAlloc* m_handleAlloc;
 	};
 
 	class RecvRingBuffer
 	{
+		BX_CLASS(RecvRingBuffer
+			, NO_COPY
+			, NO_ASSIGNMENT
+			);
+
 	public:
 		RecvRingBuffer(bx::RingBufferControl& _control, char* _buffer)
 			: m_control(_control)
@@ -294,8 +299,6 @@ namespace bnet
 
 	private:
 		RecvRingBuffer();
-		RecvRingBuffer(const RecvRingBuffer&);
-		void operator=(const RecvRingBuffer&);
 
 		bx::RingBufferControl& m_control;
 		uint32_t m_write;
@@ -347,4 +350,4 @@ namespace bnet
 
 } // namespace bnet
 
-#endif // __BNET_P_H__
+#endif // BNET_P_H_HEADER_GUARD

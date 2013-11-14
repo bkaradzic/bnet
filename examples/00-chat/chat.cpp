@@ -1,19 +1,17 @@
 /*
- * Copyright 2010-2012 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2013 Branimir Karadzic. All rights reserved.
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
+
+#include <bnet.h>
 
 #include <stdio.h>
 #include <string.h>
 #include <set>
 #include <malloc.h>
-#include "bnet.h"
 
+#include <bx/string.h>
 #include <bx/commandline.h>
-
-#ifndef snprintf
-#	define snprintf _snprintf
-#endif // snprintf
 
 static const char* s_certs[] = {
 	"-----BEGIN CERTIFICATE-----\n"
