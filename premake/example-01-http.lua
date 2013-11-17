@@ -30,3 +30,8 @@ project "example-01-http"
 			"ssleay32",
 			"ws2_32",
 		}
+
+	configuration { "osx" }
+		linkoptions {
+			"-framework Cocoa",
+		}
