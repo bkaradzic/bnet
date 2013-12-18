@@ -63,22 +63,22 @@ struct sockaddr_in
 
 inline uint32_t htonl(uint32_t _hostlong)
 {
-	return bx::bigEndian(_hostlong);
+	return bx::toBigEndian(_hostlong);
 }
 
 inline uint16_t htons(uint16_t _hostshort)
 {
-	return bx::bigEndian(_hostshort);
+	return bx::toBigEndian(_hostshort);
 }
 
 inline uint32_t ntohl(uint32_t _hostlong)
 {
-	return bx::bigEndian(_hostlong);
+	return bx::toBigEndian(_hostlong);
 }
 
 inline uint16_t ntohs(uint16_t _hostshort)
 {
-	return bx::bigEndian(_hostshort);
+	return bx::toBigEndian(_hostshort);
 }
 
 extern int naclOpenSocket();
@@ -88,7 +88,7 @@ extern ssize_t naclSend(int _fd, const void* _buf, size_t _n);
 extern ssize_t naclRecv(int _fd, void* _buf, size_t _n);
 extern bool naclIsConnected(int _fd);
 
-inline int socket(int _domain, int _type, int _protocol)
+inline int socket(int /*_domain*/, int /*_type*/, int /*_protocol*/)
 {
 	return naclOpenSocket();
 }
@@ -103,12 +103,12 @@ inline int connectsocket(int _fd, uint32_t _ip, uint16_t _port, bool _secure)
 	return naclConnect(_fd, _ip, _port, _secure);
 }
 
-inline ssize_t send(int _fd, const void* _buf, size_t _n, int _flags)
+inline ssize_t send(int _fd, const void* _buf, size_t _n, int /*_flags*/)
 {
 	return naclSend(_fd, _buf, _n);
 }
 
-inline ssize_t recv(int _fd, void* _buf, size_t _n, int _flags)
+inline ssize_t recv(int _fd, void* _buf, size_t _n, int /*_flags*/)
 {
 	return naclRecv(_fd, _buf, _n);
 }
@@ -118,22 +118,22 @@ static bool issocketready(int _fd)
 	return naclIsConnected(_fd);
 }
 
-inline int setsockopt(int _fd, int _level, int _optname, const void* _optval, socklen_t _optlen)
+inline int setsockopt(int /*_fd*/, int /*_level*/, int /*_optname*/, const void* /*_optval*/, socklen_t /*_optlen*/)
 {
 	return 0;
 }
 
-inline int listen(int _fd, int _n)
+inline int listen(int /*_fd*/, int /*_n*/)
 {
 	return INVALID_SOCKET;
 }
 
-inline int accept(int _fd, struct sockaddr* _addr, socklen_t* _addr_len)
+inline int accept(int /*_fd*/, struct sockaddr* /*_addr*/, socklen_t* /*_addr_len*/)
 {
 	return INVALID_SOCKET;
 }
 
-inline int bind(int _fd, const struct sockaddr* _addr, socklen_t _len)
+inline int bind(int /*_fd*/, const struct sockaddr* /*_addr*/, socklen_t /*_len*/)
 {
 	return INVALID_SOCKET;
 }
@@ -150,12 +150,12 @@ struct addrinfo
 	struct addrinfo *ai_next;
 };
 
-inline int getaddrinfo(const char* _name, const char* _service, const struct addrinfo* _req, struct addrinfo** _pai)
+inline int getaddrinfo(const char* /*_name*/, const char* /*_service*/, const struct addrinfo* /*_req*/, struct addrinfo** /*_pai*/)
 {
 	return 0;
 }
 
-inline void freeaddrinfo(struct addrinfo* _ai)
+inline void freeaddrinfo(struct addrinfo* /*_ai*/)
 {
 }
 

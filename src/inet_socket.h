@@ -6,7 +6,7 @@
 #ifndef BNET_INET_SOCKET_H_HEADER_GUARD
 #define BNET_INET_SOCKET_H_HEADER_GUARD
 
-static int connectsocket(SOCKET socket, uint32_t _ip, uint16_t _port, bool _secure)
+static int connectsocket(SOCKET socket, uint32_t _ip, uint16_t _port, bool /*_secure*/)
 {
 	sockaddr_in addr;
 	addr.sin_family = AF_INET;

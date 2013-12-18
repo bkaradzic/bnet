@@ -67,7 +67,7 @@ static const char* s_cert[] = {
 	NULL
 	};
 
-int main(int _argc, const char* _argv[])
+int main(int /*_argc*/, const char* /*_argv*/[])
 {
 	bnet::init(1, 0, s_cert);
 
