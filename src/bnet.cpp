@@ -356,21 +356,21 @@ namespace bnet
 					bytes = m_recv.recv(m_socket);
 				}
 
-				if (1 > bytes
-				&&  !isWouldBlock() )
+				if (1 > bytes)
 				{
 					if (0 == bytes)
 					{
 						BX_TRACE("Disconnect %d - Host closed connection.", m_handle);
+						disconnect(DisconnectReason::HostClosed);
+						return;
 					}
-					else
+					else if (!isWouldBlock() )
 					{
 						TRACE_SSL_ERROR();
 						BX_TRACE("Disconnect %d - Receive failed. %d", m_handle, getLastError() );
+						disconnect(DisconnectReason::RecvFailed);
+						return;
 					}
-
-					disconnect(DisconnectReason::RecvFailed);
-					return;
 				}
 
 				if (!m_sslHandshake)

@@ -124,17 +124,6 @@ namespace bnet
 		};
 	};
 
-	struct DisconnectReason
-	{
-		enum Enum
-		{
-			None,
-			RecvFailed,
-			SendFailed,
-			InvalidMessageId,
-		};
-	};
-
 	extern bx::ReallocatorI* g_allocator;
 
 	Handle ctxAccept(Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, X509* _cert, EVP_PKEY* _key);

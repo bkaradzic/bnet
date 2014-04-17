@@ -35,6 +35,18 @@ namespace bnet
 		};
 	};
 
+	struct DisconnectReason
+	{
+		enum Enum
+		{
+			None,
+			HostClosed,
+			RecvFailed,
+			SendFailed,
+			InvalidMessageId,
+		};
+	};
+
 	struct Message
 	{
 		uint8_t* data;
