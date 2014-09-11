@@ -20,6 +20,7 @@ all:
 	$(GENIE) vs2008
 	$(GENIE) vs2010
 	$(GENIE) vs2012
+	$(GENIE) vs2013
 	$(GENIE) --gcc=android-arm gmake
 	$(GENIE) --gcc=android-mips gmake
 	$(GENIE) --gcc=android-x86 gmake
@@ -98,6 +99,9 @@ vs2008: vs2008-debug32 vs2008-release32 vs2008-debug64 vs2008-release64
 
 .build/projects/vs2012:
 	$(GENIE) vs2012
+
+.build/projects/vs2013:
+	$(GENIE) vs2013
 
 .build/projects/gmake-nacl:
 	$(GENIE) --gcc=nacl gmake
