@@ -54,7 +54,6 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 #		if !defined(_WIN32_WINNT)
 #			define _WIN32_WINNT 0x0501
 #		endif
-#		include <winsock2.h>
 #		include <ws2tcpip.h>
 #	elif BX_PLATFORM_XBOX360
 #		include <xtl.h>
@@ -241,7 +240,7 @@ namespace bnet
 
 		int recv(SOCKET _socket)
 		{
-			m_reserved += m_control.reserve(-1);
+			m_reserved += m_control.reserve(UINT32_MAX);
 			uint32_t end = (m_write + m_reserved) % m_control.m_size;
 			uint32_t wrap = end < m_write ? m_control.m_size - m_write : m_reserved;
 			char* to = &m_buffer[m_write];
