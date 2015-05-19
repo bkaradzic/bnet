@@ -740,6 +740,7 @@ namespace bnet
 			: m_connections(NULL)
 			, m_listenSockets(NULL)
 			, m_sslCtx(NULL)
+			, m_sslCtxServer(NULL)
 		{
 		}
 
@@ -770,8 +771,14 @@ namespace bnet
 					BIO_free(mem);
 				}
 			}
+
+			if (_maxListenSockets)
+			{
+				m_sslCtx = SSL_CTX_new(SSLv23_server_method());
+			}
 #else
 			m_sslCtx = &sslDummyContext;
+			m_sslCtxServer = &sslDummyContext;
 			BX_UNUSED(_certs);
 #endif // BNET_CONFIG_OPENSSL
 
@@ -804,6 +811,13 @@ namespace bnet
 			{
 				SSL_CTX_free(m_sslCtx);
 			}
+			m_sslCtx = NULL;
+
+			if (NULL != m_sslCtxServer)
+			{
+				SSL_CTX_free(m_sslCtxServer);
+			}
+			m_sslCtxServer = NULL;
 			CRYPTO_set_mem_functions(m_sslMalloc, m_sslRealloc, m_sslFree);
 #endif // BNET_CONFIG_OPENSSL
 		}
@@ -835,7 +849,7 @@ namespace bnet
 			{
 				Handle handle = { m_connections->getHandle(connection) };
 				bool secure = NULL != _cert && NULL != _key;
-				connection->accept(handle, _listenHandle, _socket, _ip, _port, _raw, secure?m_sslCtx:NULL, _cert, _key);
+				connection->accept(handle, _listenHandle, _socket, _ip, _port, _raw, secure?m_sslCtxServer:NULL, _cert, _key);
 				return handle;
 			}
 
@@ -1001,6 +1015,7 @@ namespace bnet
 #endif // BNET_CONFIG_OPENSSL
 
 		SSL_CTX* m_sslCtx;
+		SSL_CTX* m_sslCtxServer;
 	};
 
 	static Context s_ctx;
