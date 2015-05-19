@@ -16,9 +16,11 @@ namespace bnet
 
 	static void getSslErrorInfo()
 	{
-		BIO* bio = BIO_new_fp(stderr, BIO_NOCLOSE);
+		BIO* bio = BIO_new(BIO_s_mem());
 		ERR_print_errors(bio);
-		(void)BIO_flush(bio);
+		BUF_MEM *bptr;
+		BIO_get_mem_ptr(bio, &bptr);
+		BX_TRACE("OpenSSL Error: %.*s", bptr->length, bptr->data);
 		BIO_free(bio);
 	}
 
