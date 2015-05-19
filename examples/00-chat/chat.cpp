@@ -112,15 +112,15 @@ int main(int _argc, const char* _argv[])
 					{
 						{
 							bnet::Handle listen = { *( (uint16_t*)&msg->data[1]) };
-							uint32_t ip = *( (uint32_t*)&msg->data[3]);
-							uint16_t port = *( (uint16_t*)&msg->data[7]);
+							uint32_t rip = *( (uint32_t*)&msg->data[3]);
+							uint16_t rport = *( (uint16_t*)&msg->data[7]);
 
 							printf("%d.%d.%d.%d:%d connected\n"
-								, ip>>24
-								, (ip>>16)&0xff
-								, (ip>>8)&0xff
-								, ip&0xff
-								, port
+								, rip>>24
+								, (rip>>16)&0xff
+								, (rip>>8)&0xff
+								, rip&0xff
+								, rport
 								);
 
 							bnet::stop(listen);
@@ -161,10 +161,10 @@ int main(int _argc, const char* _argv[])
 					const char* pong = "pong!";
 					const char* hello = server ? ping : pong;
 					uint16_t len = (uint16_t)strlen(hello);
-					bnet::Message* msg = bnet::alloc(handle, len+1);
-					msg->data[0] = bnet::MessageId::UserDefined+1;
-					memcpy(&msg->data[1], hello, len);
-					bnet::send(msg);
+					bnet::Message* omsg = bnet::alloc(handle, len+1);
+					omsg->data[0] = bnet::MessageId::UserDefined+1;
+					memcpy(&omsg->data[1], hello, len);
+					bnet::send(omsg);
 				}
 			}
 
