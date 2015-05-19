@@ -5,6 +5,8 @@
 
 #include "bnet_p.h"
 
+#include <bx/endian.h>
+
 namespace bnet
 {
 	static bx::CrtAllocator s_allocatorStub;
@@ -303,7 +305,7 @@ namespace bnet
 						{
 							uint16_t len;
 							read((char*)&len, 2);
-							m_len = len;
+							m_len = bx::toHostEndian(len, true);
 						}
 					}
 					else
@@ -400,17 +402,21 @@ namespace bnet
 						for (Message* msg = m_outgoing.peek(); NULL != msg; msg = m_outgoing.peek() )
 						{
 							Internal::Enum id = Internal::Enum(*(msg->data - 2) );
-							*( (uint16_t*)msg->data - 1) = msg->size;
 							if (Internal::None != id)
 							{
+								*( (uint16_t*)msg->data - 1) = msg->size;
 								if (!processInternal(id, msg) )
 								{
 									return;
 								}
 							}
-							else if (!send( (char*)msg->data - 2, msg->size+2) )
+							else
 							{
-								return;
+								*( (uint16_t*)msg->data - 1) = bx::toLittleEndian(msg->size);
+								if (!send( (char*)msg->data - 2, msg->size+2) )
+								{
+									return;
+								}
 							}
 
 							release(m_outgoing.pop() );
