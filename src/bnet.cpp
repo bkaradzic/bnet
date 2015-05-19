@@ -774,7 +774,7 @@ namespace bnet
 
 			if (_maxListenSockets)
 			{
-				m_sslCtx = SSL_CTX_new(SSLv23_server_method());
+				m_sslCtxServer = SSL_CTX_new(SSLv23_server_method());
 			}
 #else
 			m_sslCtx = &sslDummyContext;
