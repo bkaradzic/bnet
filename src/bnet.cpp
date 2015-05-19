@@ -762,9 +762,9 @@ namespace bnet
 			if (NULL != _certs)
 			{
 				X509_STORE* store = SSL_CTX_get_cert_store(m_sslCtx);
-				for (const char* cert = *_certs; NULL != cert; cert = *(_certs++) )
+				for (const char** cert = _certs; NULL != *cert; ++cert )
 				{
-					BIO* mem = BIO_new_mem_buf(const_cast<char*>(cert), -1);
+					BIO* mem = BIO_new_mem_buf(const_cast<char*>(*cert), -1);
 					X509* x509 = PEM_read_bio_X509(mem, NULL, NULL, NULL);
 					X509_STORE_add_cert(store, x509);
 					X509_free(x509);
