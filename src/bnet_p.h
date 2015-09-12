@@ -6,7 +6,7 @@
 #ifndef BNET_P_H_HEADER_GUARD
 #define BNET_P_H_HEADER_GUARD
 
-#include "bnet.h"
+#include <bnet/bnet.h>
 
 #ifndef BNET_CONFIG_DEBUG
 #	define BNET_CONFIG_DEBUG 0
@@ -77,7 +77,7 @@ extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format
 	typedef linger LINGER;
 	typedef hostent HOSTENT;
 	typedef in_addr IN_ADDR;
-	
+
 #	define SOCKET_ERROR (-1)
 #	define INVALID_SOCKET (-1)
 #	define closesocket close

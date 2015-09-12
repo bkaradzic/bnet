@@ -3,7 +3,7 @@
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
 
-#include <bnet.h>
+#include <bnet/bnet.h>
 
 #include <stdio.h>
 #include <string.h>
