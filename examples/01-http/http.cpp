@@ -19,7 +19,7 @@ bnet::Handle httpSendRequest(uint32_t _ip, uint16_t _port, const char* _request,
 {
 	bnet::Handle handle = bnet::connect(_ip, _port, true, secure);
 
-	bnet::Message* out = bnet::alloc(handle, (uint32_t)strlen(_request) );
+	bnet::Message* out = bnet::alloc(handle, (uint16_t)strlen(_request) );
 	memcpy(out->data, _request, out->size);
 	bnet::send(out);
 	bnet::notify(handle, UINT64_C(0x123456789ABCDEF) );

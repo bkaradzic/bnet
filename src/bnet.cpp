@@ -10,7 +10,7 @@
 namespace bnet
 {
 	static bx::CrtAllocator s_allocatorStub;
-	bx::ReallocatorI* g_allocator = &s_allocatorStub;
+	bx::AllocatorI* g_allocator = &s_allocatorStub;
 
 #if BNET_CONFIG_OPENSSL && BNET_CONFIG_DEBUG
 
@@ -1056,7 +1056,7 @@ namespace bnet
 		BX_FREE(g_allocator, _msg);
 	}
 
-	void init(uint16_t _maxConnections, uint16_t _maxListenSockets, const char* _certs[], bx::ReallocatorI* _allocator)
+	void init(uint16_t _maxConnections, uint16_t _maxListenSockets, const char* _certs[], bx::AllocatorI* _allocator)
 	{
 		if (NULL != _allocator)
 		{
