@@ -11,7 +11,7 @@
 
 #define BNET_HANDLE(_name) struct _name { uint16_t idx; }
 
-namespace bx { struct ReallocatorI; }
+namespace bx { struct AllocatorI; }
 
 namespace bnet
 {
@@ -68,7 +68,7 @@ namespace bnet
 	/// @param _certs SSL certificates.
 	/// @param _allocator Custom allocator.
 	///
-	void init(uint16_t _maxConnections, uint16_t _maxListenSockets = 0, const char* _certs[] = NULL, bx::ReallocatorI* _allocator = NULL);
+	void init(uint16_t _maxConnections, uint16_t _maxListenSockets = 0, const char* _certs[] = NULL, bx::AllocatorI* _allocator = NULL);
 
 	/// Shutdown networking.
 	void shutdown();
