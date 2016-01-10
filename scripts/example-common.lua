@@ -8,12 +8,12 @@ project ("example-common")
 	kind "StaticLib"
 
 	includedirs {
-		BX_DIR .. "include",
-		BNET_DIR .. "include",
-		BNET_DIR .. "3rdparty",
+		path.join(BX_DIR, "include"),
+		path.join(BNET_DIR, "include"),
+		path.join(BNET_DIR, "3rdparty"),
 	}
 
 	files {
-		BNET_DIR .. "examples/common/**.cpp",
-		BNET_DIR .. "examples/common/**.h",
+		path.join(BNET_DIR, "examples/common/**.cpp"),
+		path.join(BNET_DIR, "examples/common/**.h"),
 	}

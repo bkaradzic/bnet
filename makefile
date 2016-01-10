@@ -14,7 +14,7 @@ else
 OS=windows
 endif
 
-GENIE=../bx/tools/bin/$(OS)/genie
+GENIE?=../bx/tools/bin/$(OS)/genie
 
 all:
 	$(GENIE) vs2008

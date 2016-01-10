@@ -19,15 +19,19 @@ solution "bnet"
 	language "C++"
 
 BNET_DIR = (path.getabsolute("..") .. "/")
-local BNET_BUILD_DIR = (BNET_DIR .. ".build/")
-local BNET_THIRD_PARTY_DIR = (BNET_DIR .. "3rdparty/")
-BX_DIR = (BNET_DIR .. "../bx/")
+BX_DIR   = os.getenv("BX_DIR")
+
+local BNET_BUILD_DIR = path.join(BNET_DIR, ".build")
+local BNET_THIRD_PARTY_DIR = path.join(BNET_DIR, "3rdparty")
+if not BX_DIR then
+	BX_DIR = path.getabsolute(path.join(BNET_DIR, "../bx") )
+end
 
 defines {
 	"BX_CONFIG_ENABLE_MSVC_LEVEL4_WARNINGS=1"
 }
 
-dofile (BX_DIR .. "scripts/toolchain.lua")
+dofile (path.join(BX_DIR, "scripts/toolchain.lua") )
 toolchain(BNET_BUILD_DIR, BNET_THIRD_PARTY_DIR)
 
 function copyLib()
@@ -41,16 +45,16 @@ function exampleProject(_name, _uuid)
 
 	configuration {}
 
-	debugdir (BNET_DIR .. "examples/runtime/")
+	debugdir (path.join(BNET_DIR, "examples/runtime") )
 
 	includedirs {
-		BX_DIR .. "include",
-		BNET_DIR .. "include",
+		path.join(BX_DIR, "include"),
+		path.join(BNET_DIR, "include"),
 	}
 
 	files {
-		BNET_DIR .. "examples/" .. _name .. "/**.cpp",
-		BNET_DIR .. "examples/" .. _name .. "/**.h",
+		path.join(BNET_DIR, "examples", _name, "**.cpp"),
+		path.join(BNET_DIR, "examples", _name, "**.h"),
 	}
 
 	links {
@@ -61,10 +65,10 @@ function exampleProject(_name, _uuid)
 	configuration { "vs*" }
 
 	configuration { "x32", "vs*" }
-		libdirs { BNET_DIR .. "3rdparty/openssl/lib/win32_" .. _ACTION .. "/lib" }
+		libdirs { path.join(BNET_DIR, "3rdparty/openssl/lib/win32_", _ACTION, "lib") }
 
 	configuration { "x64", "vs*" }
-		libdirs { BNET_DIR .. "3rdparty/openssl/lib/win64_" .. _ACTION .. "/lib" }
+		libdirs { path.join(BNET_DIR, "3rdparty/openssl/lib/win64_", _ACTION, "lib") }
 
 	configuration { "x32 or x64", "windows" }
 		links {

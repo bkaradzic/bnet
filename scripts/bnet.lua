@@ -3,24 +3,24 @@ project "bnet"
 	kind "StaticLib"
 
 	includedirs {
-		BX_DIR .. "include",
-		BNET_DIR .. "include",
+		path.join(BX_DIR, "include"),
+		path.join(BNET_DIR, "include"),
 	}
 
 	configuration { "x32", "vs*" }
-		includedirs { BNET_DIR .. "3rdparty/openssl/lib/win32_" .. _ACTION .. "/include" }
+		includedirs { path.join(BNET_DIR, "3rdparty/openssl/lib/win32_", _ACTION, "include") }
 
 	configuration { "x64", "vs*" }
-		includedirs { BNET_DIR .. "3rdparty/openssl/lib/win64_" .. _ACTION .. "/include" }
+		includedirs { path.join(BNET_DIR, "3rdparty/openssl/lib/win64_", _ACTION, "include") }
 
 	configuration { "android-arm7" }
-		includedirs { BNET_DIR .. "3rdparty/openssl/lib/android_arm7/include" }
+		includedirs { path.join(BNET_DIR, "3rdparty/openssl/lib/android_arm7/include") }
 
 	configuration { "default-linux", "x32" }
-		includedirs { BNET_DIR .. "3rdparty/openssl/lib/linux-generic32/include" }
+		includedirs { path.join(BNET_DIR, "3rdparty/openssl/lib/linux-generic32/include") }
 
 	configuration { "default-linux", "x64" }
-		includedirs { BNET_DIR .. "3rdparty/openssl/lib/linux-generic64/include" }
+		includedirs { path.join(BNET_DIR, "3rdparty/openssl/lib/linux-generic64/include") }
 
 	configuration "Debug"
 		defines {
@@ -30,9 +30,9 @@ project "bnet"
 	configuration {}
 
 	files {
-		BNET_DIR .. "include/**.h",
-		BNET_DIR .. "src/**.cpp",
-		BNET_DIR .. "src/**.h",
+		path.join(BNET_DIR, "include/**.h"),
+		path.join(BNET_DIR, "src/**.cpp"),
+		path.join(BNET_DIR, "src/**.h"),
 	}
 
 	copyLib()
