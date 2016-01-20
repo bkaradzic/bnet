@@ -10,7 +10,7 @@ before_script:
   git clone https://github.com/bkaradzic/bx 3rdparty/bx
 
 script:
-  make BX_DIR=$PWD/3rdparty/bx release
+  make BX_DIR=$PWD/3rdparty/bx build
 
 branches:
   only:

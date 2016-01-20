@@ -71,17 +71,17 @@ linux-release64: .build/projects/gmake-linux
 	make -R -C .build/projects/gmake-linux config=release64
 linux: linux-debug32 linux-release32 linux-debug64 linux-release64
 
-.build/projects/gmake-mingw:
-	$(GENIE) --gcc=mingw gmake
-mingw-debug32: .build/projects/gmake-mingw
-	make -R -C .build/projects/gmake-mingw config=debug32
-mingw-release32: .build/projects/gmake-mingw
-	make -R -C .build/projects/gmake-mingw config=release32
-mingw-debug64: .build/projects/gmake-mingw
-	make -R -C .build/projects/gmake-mingw config=debug64
-mingw-release64: .build/projects/gmake-mingw
-	make -R -C .build/projects/gmake-mingw config=release64
-mingw: mingw-debug32 mingw-release32 mingw-debug64 mingw-release64
+.build/projects/gmake-mingw-gcc:
+	$(GENIE) --gcc=mingw-gcc gmake
+mingw-gcc-debug32: .build/projects/gmake-mingw-gcc
+	make -R -C .build/projects/gmake-mingw-gcc config=debug32
+mingw-gcc-release32: .build/projects/gmake-mingw-gcc
+	make -R -C .build/projects/gmake-mingw-gcc config=release32
+mingw-gcc-debug64: .build/projects/gmake-mingw-gcc
+	make -R -C .build/projects/gmake-mingw-gcc config=debug64
+mingw-gcc-release64: .build/projects/gmake-mingw-gcc
+	make -R -C .build/projects/gmake-mingw-gcc config=release64
+mingw-gcc: mingw-gcc-debug32 mingw-gcc-release32 mingw-gcc-debug64 mingw-gcc-release64
 
 .build/projects/vs2008:
 	$(GENIE) vs2008
@@ -160,13 +160,13 @@ ios-simulator-release: .build/projects/gmake-ios-simulator
 	make -R -C .build/projects/gmake-ios-simulator config=release
 ios-simulator: ios-simulator-debug ios-simulator-release
 
-release-darwin:
-	make -R -C .build/projects/gmake-osx config=release64
+build-darwin: osx
 
-release-linux:
-	make -R -C .build/projects/gmake-linux-gcc config=release64
+build-linux: linux
 
-release: release-$(OS)
+build-windows: mingw
+
+build: build-$(OS)
 
 analyze:
 	cppcheck src/
