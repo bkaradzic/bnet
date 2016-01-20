@@ -14,7 +14,8 @@ else
 OS=windows
 endif
 
-GENIE?=../bx/tools/bin/$(OS)/genie
+BX_DIR?=../bx
+GENIE?=$(BX_DIR)/tools/bin/$(OS)/genie
 
 all:
 	$(GENIE) vs2008
@@ -27,7 +28,7 @@ all:
 	$(GENIE) --gcc=nacl gmake
 	$(GENIE) --gcc=nacl-arm gmake
 	$(GENIE) --gcc=pnacl gmake
-	$(GENIE) --gcc=mingw gmake
+	$(GENIE) --gcc=mingw-gcc gmake
 	$(GENIE) --gcc=linux-gcc gmake
 	$(GENIE) --gcc=osx gmake
 	$(GENIE) --gcc=ios-arm gmake
@@ -159,8 +160,13 @@ ios-simulator-release: .build/projects/gmake-ios-simulator
 	make -R -C .build/projects/gmake-ios-simulator config=release
 ios-simulator: ios-simulator-debug ios-simulator-release
 
-rebuild-shaders:
-	make -R -C examples rebuild
+release-darwin:
+	make -R -C .build/projects/gmake-osx config=release64
+
+release-linux:
+	make -R -C .build/projects/gmake-linux-gcc config=release64
+
+release: release-$(OS)
 
 analyze:
 	cppcheck src/
