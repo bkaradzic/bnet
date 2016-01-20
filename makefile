@@ -162,7 +162,7 @@ ios-simulator: ios-simulator-debug ios-simulator-release
 
 build-darwin: osx
 
-build-linux: linux
+build-linux: linux-debug64 linux-release64
 
 build-windows: mingw
 
