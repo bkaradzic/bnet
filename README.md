@@ -4,6 +4,7 @@
 Message oriented networking library using TCP transport.
 
 [![Build Status](https://travis-ci.org/bkaradzic/bnet.svg?branch=master)](https://travis-ci.org/bkaradzic/bnet)
+[![Build status](https://ci.appveyor.com/api/projects/status/fjlngrouyv1355kh?svg=true)](https://ci.appveyor.com/project/bkaradzic/bnet)
 
 Contact
 -------
