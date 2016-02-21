@@ -6,6 +6,7 @@
 #include "bnet_p.h"
 
 #include <bx/endian.h>
+#include <bx/crtimpl.h>
 
 namespace bnet
 {
@@ -150,7 +151,7 @@ namespace bnet
 		void accept(Handle _handle, Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, SSL_CTX* _sslCtx, X509* _cert, EVP_PKEY* _key)
 		{
 			init(_handle, _raw);
-			
+
 			m_socket = _socket;
 			Message* msg = msgAlloc(m_handle, 9, true);
 			msg->data[0] = MessageId::IncomingConnection;
@@ -185,7 +186,7 @@ namespace bnet
 			if (m_ssl)
 			{
 				SSL_shutdown(m_ssl);
-				SSL_free(m_ssl); 
+				SSL_free(m_ssl);
 				m_ssl = NULL;
 			}
 #endif // BNET_CONFIG_OPENSSL
@@ -332,11 +333,11 @@ namespace bnet
 							}
 
 							ctxPush(msg);
-						
+
 							m_len = -1;
 						}
 					}
-					
+
 					available = bx::uint32_min(m_incoming.available(), maxMessageSize);
 				}
 			}
@@ -566,7 +567,7 @@ namespace bnet
 						, 0
 						);
 				}
-				
+
 				if (0 > bytes)
 				{
 					if (-1 == bytes
@@ -582,7 +583,7 @@ namespace bnet
 					_len -= bytes;
 					offset += bytes;
 				}
-				
+
 			} while (0 < _len);
 
 			return true;
@@ -1021,7 +1022,7 @@ namespace bnet
 	};
 
 	static Context s_ctx;
-	
+
 	Handle ctxAccept(Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, X509* _cert, EVP_PKEY* _key)
 	{
 		return s_ctx.accept(_listenHandle, _socket, _ip, _port, _raw, _cert, _key);
