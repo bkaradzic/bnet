@@ -5,6 +5,8 @@ Message oriented networking library using TCP transport.
 
 [![Build Status](https://travis-ci.org/bkaradzic/bnet.svg?branch=master)](https://travis-ci.org/bkaradzic/bnet)
 [![Build status](https://ci.appveyor.com/api/projects/status/fjlngrouyv1355kh?svg=true)](https://ci.appveyor.com/project/bkaradzic/bnet)
+[![License](https://img.shields.io/badge/license-BSD--2%20clause-blue.svg)](https://bkaradzic.github.io/bgfx/license.html)
+[![Join the chat at https://gitter.im/bkaradzic/bgfx](https://badges.gitter.im/bkaradzic/bgfx.svg)](https://gitter.im/bkaradzic/bgfx)
 
 Contact
 -------
