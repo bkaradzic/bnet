@@ -172,10 +172,7 @@ analyze:
 	cppcheck src/
 	cppcheck examples/
 
-docs:
-	doxygen genie/bgfx.doxygen
-	markdown README.md > .build/docs/readme.html
-
-clean:
+clean: ## Clean all intermediate files.
 	@echo Cleaning...
 	-@rm -rf .build
+	@mkdir .build
