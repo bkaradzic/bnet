@@ -151,32 +151,52 @@ namespace bnet
 
 		Ty* create()
 		{
+			uint16_t handle = m_handleAlloc->alloc();
+			if (handle == bx::HandleAlloc::invalid) {
+				return NULL;
+			}
+
 			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
-			Ty* obj = &first[m_handleAlloc->alloc()];
+			Ty* obj = &first[handle];
 			obj = ::new (obj) Ty;
 			return obj;
 		}
 
 		template<typename Arg0> Ty* create(Arg0 _a0)
 		{
+			uint16_t handle = m_handleAlloc->alloc();
+			if (handle == bx::HandleAlloc::invalid) {
+				return NULL;
+			}
+
 			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
-			Ty* obj = &first[m_handleAlloc->alloc()];
+			Ty* obj = &first[handle];
 			obj = ::new (obj) Ty(_a0);
 			return obj;
 		}
 
 		template<typename Arg0, typename Arg1> Ty* create(Arg0 _a0, Arg1 _a1)
 		{
+			uint16_t handle = m_handleAlloc->alloc();
+			if (handle == bx::HandleAlloc::invalid) {
+				return NULL;
+			}
+
 			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
-			Ty* obj = &first[m_handleAlloc->alloc()];
+			Ty* obj = &first[handle];
 			obj = ::new (obj) Ty(_a0, _a1);
 			return obj;
 		}
 
 		template<typename Arg0, typename Arg1, typename Arg2> Ty* create(Arg0 _a0, Arg1 _a1, Arg2 _a2)
 		{
+			uint16_t handle = m_handleAlloc->alloc();
+			if (handle == bx::HandleAlloc::invalid) {
+				return NULL;
+			}
+
 			Ty* first = reinterpret_cast<Ty*>(m_memBlock);
-			Ty* obj = &first[m_handleAlloc->alloc()];
+			Ty* obj = &first[handle];
 			obj = ::new (obj) Ty(_a0, _a1, _a2);
 			return obj;
 		}
