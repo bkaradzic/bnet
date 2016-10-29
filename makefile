@@ -18,8 +18,6 @@ BX_DIR?=../bx
 GENIE?=$(BX_DIR)/tools/bin/$(OS)/genie
 
 all:
-	$(GENIE) vs2008
-	$(GENIE) vs2010
 	$(GENIE) vs2012
 	$(GENIE) vs2013
 	$(GENIE) --gcc=android-arm gmake
@@ -82,21 +80,6 @@ mingw-gcc-debug64: .build/projects/gmake-mingw-gcc
 mingw-gcc-release64: .build/projects/gmake-mingw-gcc
 	make -R -C .build/projects/gmake-mingw-gcc config=release64
 mingw-gcc: mingw-gcc-debug32 mingw-gcc-release32 mingw-gcc-debug64 mingw-gcc-release64
-
-.build/projects/vs2008:
-	$(GENIE) vs2008
-vs2008-debug32:
-	devenv .build/projects/vs2008/bgfx.sln /Build "Debug|Win32"
-vs2008-release32:
-	devenv .build/projects/vs2008/bgfx.sln /Build "Release|Win32"
-vs2008-debug64:
-	devenv .build/projects/vs2008/bgfx.sln /Build "Debug|x64"
-vs2008-release64:
-	devenv .build/projects/vs2008/bgfx.sln /Build "Release|x64"
-vs2008: vs2008-debug32 vs2008-release32 vs2008-debug64 vs2008-release64
-
-.build/projects/vs2010:
-	$(GENIE) vs2010
 
 .build/projects/vs2012:
 	$(GENIE) vs2012
