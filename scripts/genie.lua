@@ -63,8 +63,8 @@ function exampleProject(_name)
 	}
 
 	links {
-		"example-common",
 		"bnet",
+		"example-common",
 		"bx",
 	}
 
