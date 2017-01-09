@@ -42,10 +42,10 @@ toolchain(BNET_BUILD_DIR, BNET_THIRD_PARTY_DIR)
 function copyLib()
 end
 
-function exampleProject(_name, _uuid)
+function exampleProject(_name)
 
 	project ("example-" .. _name)
-		uuid (_uuid)
+		uuid (os.uuid("example-" .. _name))
 		kind "ConsoleApp"
 
 	configuration {}
@@ -63,8 +63,9 @@ function exampleProject(_name, _uuid)
 	}
 
 	links {
-		"bnet",
 		"example-common",
+		"bnet",
+		"bx",
 	}
 
 	configuration { "vs* or mingw*" }
@@ -129,7 +130,11 @@ function exampleProject(_name, _uuid)
 	strip()
 end
 
+group "libs"
 dofile "bnet.lua"
+dofile(path.join(BX_DIR, "scripts/bx.lua"))
 dofile "example-common.lua"
-exampleProject("00-chat", "1544c710-ad76-11e0-9f1c-0800200c9a66")
-exampleProject("01-http", "35161d20-ab2b-11e0-9f1c-0800200c9a66")
+
+group "examples"
+exampleProject("00-chat")
+exampleProject("01-http")
