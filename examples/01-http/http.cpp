@@ -80,11 +80,11 @@ int main(int /*_argc*/, const char* /*_argv*/[])
 
 	bool secure = false;
 	uint16_t port = 0;
-	if (0 == bx::stricmp(tokens[UrlToken::Scheme], "http") )
+	if (0 == bx::strincmp(tokens[UrlToken::Scheme], "http") )
 	{
 		port = 80;
 	}
-	else if (0 == bx::stricmp(tokens[UrlToken::Scheme], "https") )
+	else if (0 == bx::strincmp(tokens[UrlToken::Scheme], "https") )
 	{
 		port = 443;
 		secure = true;
