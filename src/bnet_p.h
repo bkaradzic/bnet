@@ -12,13 +12,10 @@
 #	define BNET_CONFIG_DEBUG 0
 #endif // BNET_CONFIG_DEBUG
 
-extern void dbgPrintf(const char* _format, ...);
-extern void dbgPrintfData(const void* _data, uint32_t _size, const char* _format, ...);
-
 #if BNET_CONFIG_DEBUG
 #	define BX_TRACE(_format, ...) \
 				do { \
-					dbgPrintf(BX_FILE_LINE_LITERAL "BNET " _format "\n", ##__VA_ARGS__); \
+					bx::debugPrintf(BX_FILE_LINE_LITERAL "BNET " _format "\n", ##__VA_ARGS__); \
 				} while(0)
 
 #	define BX_CHECK(_condition, _format, ...) \
