@@ -54,7 +54,7 @@ void printMsg(const bnet::Message* _msg)
 {
 	uint16_t len = _msg->size;
 	char* temp = (char*)alloca(len);
-	memcpy(temp, &_msg->data[1], len-1);
+	bx::memCopy(temp, &_msg->data[1], len-1);
 	temp[len-1] = '\0';
 	printf("UserMessage %d: %s\n", _msg->data[0], temp);
 }
@@ -89,7 +89,7 @@ int main(int _argc, const char* _argv[])
 		uint16_t len = (uint16_t)strlen(hello);
 		bnet::Message* msg = bnet::alloc(handle, len+1);
 		msg->data[0] = bnet::MessageId::UserDefined;
-		memcpy(&msg->data[1], hello, len);
+		bx::memCopy(&msg->data[1], hello, len);
 		bnet::send(msg);
 	}
 
@@ -163,7 +163,7 @@ int main(int _argc, const char* _argv[])
 					uint16_t len = (uint16_t)strlen(hello);
 					bnet::Message* omsg = bnet::alloc(handle, len+1);
 					omsg->data[0] = bnet::MessageId::UserDefined+1;
-					memcpy(&omsg->data[1], hello, len);
+					bx::memCopy(&omsg->data[1], hello, len);
 					bnet::send(omsg);
 				}
 			}

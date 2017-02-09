@@ -20,7 +20,7 @@ bnet::Handle httpSendRequest(uint32_t _ip, uint16_t _port, const char* _request,
 	bnet::Handle handle = bnet::connect(_ip, _port, true, secure);
 
 	bnet::Message* out = bnet::alloc(handle, (uint16_t)strlen(_request) );
-	memcpy(out->data, _request, out->size);
+	bx::memCopy(out->data, _request, out->size);
 	bnet::send(out);
 	bnet::notify(handle, UINT64_C(0x123456789ABCDEF) );
 
@@ -155,7 +155,7 @@ int main(int /*_argc*/, const char* /*_argv*/[])
 							uint32_t pos = size;
 							size += msg->size-1;
 							data = (uint8_t*)realloc(data, size+1);
-							memcpy(&data[pos], &msg->data[1], msg->size-1);
+							bx::memCopy(&data[pos], &msg->data[1], msg->size-1);
 							data[size-1] = '\0';
 						}
 						break;

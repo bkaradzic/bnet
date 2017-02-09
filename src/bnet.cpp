@@ -449,7 +449,7 @@ namespace bnet
 				{
 					Message* msg = msgAlloc(_msg->handle, _msg->size+1, true);
 					msg->data[0] = MessageId::Notify;
-					memcpy(&msg->data[1], _msg->data, _msg->size);
+					bx::memCopy(&msg->data[1], _msg->data, _msg->size);
 					ctxPush(msg);
 				}
 				return true;
@@ -903,7 +903,7 @@ namespace bnet
 			if (invalidHandle.idx != _handle.idx)
 			{
 				Message* msg = msgAlloc(_handle, sizeof(_userData), false, Internal::Notify);
-				memcpy(msg->data, &_userData, sizeof(_userData) );
+				bx::memCopy(msg->data, &_userData, sizeof(_userData) );
 				Connection* connection = m_connections->getFromHandle(_handle.idx);
 				connection->send(msg);
 			}
@@ -912,7 +912,7 @@ namespace bnet
 				// loopback
 				Message* msg = msgAlloc(_handle, sizeof(_userData)+1, true);
 				msg->data[0] = MessageId::Notify;
-				memcpy(&msg->data[1], &_userData, sizeof(_userData) );
+				bx::memCopy(&msg->data[1], &_userData, sizeof(_userData) );
 				ctxPush(msg);
 			}
 		}
@@ -1146,7 +1146,7 @@ namespace bnet
 		uint32_t ip = 0;
 		struct addrinfo* result = NULL;
 		struct addrinfo hints;
-		memset(&hints, 0, sizeof(hints) );
+		bx::memSet(&hints, 0, sizeof(hints) );
 		hints.ai_family = AF_UNSPEC;
 
 		int res = getaddrinfo(_addr, NULL, &hints, &result);
