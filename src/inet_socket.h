@@ -9,15 +9,17 @@
 static int connectsocket(SOCKET socket, uint32_t _ip, uint16_t _port, bool /*_secure*/)
 {
 	sockaddr_in addr;
-	addr.sin_family = AF_INET;
+	bx::memSet(&addr, 0, sizeof(addr) );
+	addr.sin_family      = AF_INET;
 	addr.sin_addr.s_addr = htonl(_ip);
-	addr.sin_port = htons(_port);
+	addr.sin_port        = htons(_port);
 
 	union
 	{
-		sockaddr* sa;
+		sockaddr*    sa;
 		sockaddr_in* sain;
 	} saintosa;
+
 	saintosa.sain = &addr;
 	
 	return ::connect(socket, saintosa.sa, sizeof(addr) );
@@ -33,7 +35,7 @@ static bool issocketready(SOCKET socket)
 	FD_SET(socket, &wfds);
 
 	timeval timeout;
-	timeout.tv_sec = 0;
+	timeout.tv_sec  = 0;
 	timeout.tv_usec = 0;
 
 	int result = ::select( (int)socket + 1 /*nfds is ignored on windows*/, &rfds, &wfds, NULL, &timeout);

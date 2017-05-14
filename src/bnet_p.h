@@ -56,10 +56,6 @@
 #		include <xtl.h>
 #	endif
 #	define socklen_t int32_t
-#	if !defined(_INC_ERRNO)
-#		define EWOULDBLOCK WSAEWOULDBLOCK
-#		define EINPROGRESS WSAEINPROGRESS
-#	endif // !defined(_INC_ERRNO)
 #	include "inet_socket.h"
 #elif BX_PLATFORM_LINUX || BX_PLATFORM_ANDROID || BX_PLATFORM_OSX || BX_PLATFORM_IOS
 #	include <memory.h>

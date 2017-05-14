@@ -48,12 +48,20 @@ namespace bnet
 
 	bool isInProgress()
 	{
+#if BX_PLATFORM_WINDOWS
+		return WSAEINPROGRESS == getLastError();
+#else
 		return EINPROGRESS == getLastError();
+#endif // BX_PLATFORM_WINDOWS
 	}
 
 	bool isWouldBlock()
 	{
+#if BX_PLATFORM_WINDOWS
+		return WSAEWOULDBLOCK == getLastError();
+#else
 		return EWOULDBLOCK == getLastError();
+#endif // BX_PLATFORM_WINDOWS
 	}
 
 	void setNonBlock(SOCKET _socket)
@@ -98,12 +106,10 @@ namespace bnet
 			, m_tcpHandshake(true)
 			, m_sslHandshake(false)
 		{
-			BX_TRACE("ctor %d", m_handle);
 		}
 
 		~Connection()
 		{
-			BX_TRACE("dtor %d", m_handle);
 			BX_FREE(g_allocator, m_incomingBuffer);
 		}
 
@@ -119,7 +125,6 @@ namespace bnet
 			}
 
 			setSockOpts(m_socket);
-			setNonBlock(m_socket);
 
 			const bool ssl = _sslCtx != NULL;
 			int err = connectsocket(m_socket, _ip, _port, ssl);
@@ -127,12 +132,16 @@ namespace bnet
 			if (0 != err
 			&&  !(isInProgress() || isWouldBlock() ) )
 			{
+				BX_TRACE("Connect %d - Connect failed. %d", m_handle, getLastError() );
+
 				::closesocket(m_socket);
 				m_socket = INVALID_SOCKET;
 
 				ctxPush(m_handle, MessageId::ConnectFailed);
 				return;
 			}
+
+			setNonBlock(m_socket);
 
 #if BNET_CONFIG_OPENSSL
 			if (ssl)
@@ -206,7 +215,7 @@ namespace bnet
 			{
 				Message* msg = msgAlloc(m_handle, 2, true);
 				msg->data[0] = MessageId::LostConnection;
-				msg->data[1] = _reason;
+				msg->data[1] = uint8_t(_reason);
 				ctxPush(msg);
 			}
 		}
@@ -249,8 +258,6 @@ namespace bnet
 			m_tcpHandshakeTimeout = bx::getHPCounter() + bx::getHPFrequency()*BNET_CONFIG_CONNECT_TIMEOUT_SECONDS;
 			m_len = -1;
 			m_raw = _raw;
-
-			BX_TRACE("init %d", m_handle);
 		}
 
 		void read(bx::WriteRingBuffer& _out, uint32_t _len)
@@ -282,7 +289,7 @@ namespace bnet
 		{
 			if (m_raw)
 			{
-				uint32_t available = bx::uint32_min(m_incoming.available(), maxMessageSize-1);
+				uint16_t available = uint16_t(bx::uint32_min(m_incoming.available(), maxMessageSize-1) );
 
 				if (0 < available)
 				{
@@ -319,7 +326,7 @@ namespace bnet
 						}
 						else
 						{
-							Message* msg = msgAlloc(m_handle, m_len, true);
+							Message* msg = msgAlloc(m_handle, uint16_t(m_len), true);
 							read( (char*)msg->data, m_len);
 							uint8_t id = msg->data[0];
 
@@ -945,7 +952,7 @@ namespace bnet
 				}
 			}
 
-			for (uint32_t ii = 0, num = m_connections->getNumHandles(); ii < num; ++ii)
+			for (uint16_t ii = 0, num = m_connections->getNumHandles(); ii < num; ++ii)
 			{
 				Connection* connection = m_connections->getFromHandleAt(ii);
 				connection->update();
@@ -1031,7 +1038,7 @@ namespace bnet
 	void ctxPush(Handle _handle, MessageId::Enum _id)
 	{
 		Message* msg = msgAlloc(_handle, 1, true);
-		msg->data[0] = _id;
+		msg->data[0] = uint8_t(_id);
 		s_ctx.push(msg);
 	}
 
@@ -1047,7 +1054,7 @@ namespace bnet
 		msg->size = _size;
 		msg->handle = _handle;
 		uint8_t* data = (uint8_t*)msg + sizeof(Message);
-		data[0] = _type;
+		data[0] = uint8_t(_type);
 		msg->data = data + offset;
 		return msg;
 	}

@@ -36,7 +36,7 @@ typedef int SOCKET;
 #define SO_SNDBUF 7
 #define SO_RCVBUF 8
 
-#define INADDR_LOOPBACK ((in_addr_t)0x7f000001)
+#define INADDR_LOOPBACK ( (in_addr_t)0x7f000001)
 
 typedef uint32_t in_addr_t;
 
