@@ -34,7 +34,7 @@ namespace bnet
 	{
 #if BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
 		return WSAGetLastError();
-#elif BX_PLATFORM_LINUX || BX_PLATFORM_NACL || BX_PLATFORM_ANDROID || BX_PLATFORM_OSX || BX_PLATFORM_IOS
+#elif BX_PLATFORM_LINUX || BX_PLATFORM_ANDROID || BX_PLATFORM_OSX || BX_PLATFORM_IOS
 		return errno;
 #else
 		return 0;
@@ -1146,7 +1146,7 @@ namespace bnet
 			return (a0<<24) | (a1<<16) | (a2<<8) | a3;
 		}
 
-#if BX_PLATFORM_XBOX360 || BX_PLATFORM_NACL
+#if BX_PLATFORM_XBOX360
 		// No DNS resolution on these platforms
 		return 0;
 #else

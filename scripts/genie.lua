@@ -95,22 +95,6 @@ function exampleProject(_name)
 			"-shared",
 		}
 
-	configuration { "nacl or nacl-arm" }
-		kind "ConsoleApp"
-		targetextension ".nexe"
-		links {
-			"ppapi",
-			"pthread",
-		}
-
-	configuration { "pnacl" }
-		kind "ConsoleApp"
-		targetextension ".pexe"
-		links {
-			"ppapi",
-			"pthread",
-		}
-
 	configuration { "osx" }
 		linkoptions {
 			"-framework Cocoa",

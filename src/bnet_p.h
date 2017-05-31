@@ -77,12 +77,6 @@
 #	define INVALID_SOCKET (-1)
 #	define closesocket close
 #	include "inet_socket.h"
-#elif BX_PLATFORM_NACL
-#	include <errno.h> // errno
-#	include <string.h>
-#	include <sys/time.h> // gettimeofday
-#	include <sys/types.h> // fd_set
-#	include "nacl_socket.h"
 #endif // BX_PLATFORM_
 
 #include <bx/debug.h>
