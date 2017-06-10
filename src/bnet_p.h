@@ -139,7 +139,7 @@ namespace bnet
 		Ty* create()
 		{
 			uint16_t handle = m_handleAlloc->alloc();
-			if (handle == bx::HandleAlloc::invalid) {
+			if (handle == bx::kInvalidHandle) {
 				return NULL;
 			}
 
@@ -152,7 +152,7 @@ namespace bnet
 		template<typename Arg0> Ty* create(Arg0 _a0)
 		{
 			uint16_t handle = m_handleAlloc->alloc();
-			if (handle == bx::HandleAlloc::invalid) {
+			if (handle == bx::kInvalidHandle) {
 				return NULL;
 			}
 
@@ -165,7 +165,7 @@ namespace bnet
 		template<typename Arg0, typename Arg1> Ty* create(Arg0 _a0, Arg1 _a1)
 		{
 			uint16_t handle = m_handleAlloc->alloc();
-			if (handle == bx::HandleAlloc::invalid) {
+			if (handle == bx::kInvalidHandle) {
 				return NULL;
 			}
 
@@ -178,7 +178,7 @@ namespace bnet
 		template<typename Arg0, typename Arg1, typename Arg2> Ty* create(Arg0 _a0, Arg1 _a1, Arg2 _a2)
 		{
 			uint16_t handle = m_handleAlloc->alloc();
-			if (handle == bx::HandleAlloc::invalid) {
+			if (handle == bx::kInvalidHandle) {
 				return NULL;
 			}
 
