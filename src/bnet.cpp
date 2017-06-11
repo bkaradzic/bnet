@@ -10,7 +10,7 @@
 
 namespace bnet
 {
-	static bx::CrtAllocator s_allocatorStub;
+	static bx::DefaultAllocator s_allocatorStub;
 	bx::AllocatorI* g_allocator = &s_allocatorStub;
 
 #if BNET_CONFIG_OPENSSL && BNET_CONFIG_DEBUG
