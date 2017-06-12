@@ -46,18 +46,19 @@
 #	define BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE (64<<10)
 #endif // BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE
 
-#if BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
+#if BX_PLATFORM_WINDOWS
 #	if BX_PLATFORM_WINDOWS
 #		if !defined(_WIN32_WINNT)
 #			define _WIN32_WINNT 0x0501
 #		endif
 #		include <ws2tcpip.h>
-#	elif BX_PLATFORM_XBOX360
-#		include <xtl.h>
 #	endif
 #	define socklen_t int32_t
 #	include "inet_socket.h"
-#elif BX_PLATFORM_LINUX || BX_PLATFORM_ANDROID || BX_PLATFORM_OSX || BX_PLATFORM_IOS
+#elif  BX_PLATFORM_LINUX \
+	|| BX_PLATFORM_ANDROID \
+	|| BX_PLATFORM_OSX \
+	|| BX_PLATFORM_IOS
 #	include <memory.h>
 #	include <errno.h> // errno
 #	include <fcntl.h>

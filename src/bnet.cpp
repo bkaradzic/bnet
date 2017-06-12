@@ -32,9 +32,12 @@ namespace bnet
 
 	int getLastError()
 	{
-#if BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
+#if BX_PLATFORM_WINDOWS
 		return WSAGetLastError();
-#elif BX_PLATFORM_LINUX || BX_PLATFORM_ANDROID || BX_PLATFORM_OSX || BX_PLATFORM_IOS
+#elif  BX_PLATFORM_LINUX \
+	|| BX_PLATFORM_ANDROID \
+	|| BX_PLATFORM_OSX \
+	|| BX_PLATFORM_IOS
 		return errno;
 #else
 		return 0;
@@ -66,10 +69,13 @@ namespace bnet
 
 	void setNonBlock(SOCKET _socket)
 	{
-#if BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
+#if BX_PLATFORM_WINDOWS
 		unsigned long opt = 1 ;
 		::ioctlsocket(_socket, FIONBIO, &opt);
-#elif BX_PLATFORM_LINUX || BX_PLATFORM_ANDROID || BX_PLATFORM_OSX || BX_PLATFORM_IOS
+#elif  BX_PLATFORM_LINUX \
+	|| BX_PLATFORM_ANDROID \
+	|| BX_PLATFORM_OSX \
+	|| BX_PLATFORM_IOS
 		::fcntl(_socket, F_SETFL, O_NONBLOCK);
 #else
 		BX_UNUSED(_socket);
@@ -1071,10 +1077,10 @@ namespace bnet
 			g_allocator = _allocator;
 		}
 
-#if BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
+#if BX_PLATFORM_WINDOWS
 		WSADATA wsaData;
 		WSAStartup(MAKEWORD(2, 2), &wsaData);
-#endif // BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
+#endif // BX_PLATFORM_WINDOWS
 
 		s_ctx.init(_maxConnections, _maxListenSockets, _certs);
 	}
@@ -1083,9 +1089,9 @@ namespace bnet
 	{
 		s_ctx.shutdown();
 
-#if BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
+#if BX_PLATFORM_WINDOWS
 		WSACleanup();
-#endif // BX_PLATFORM_WINDOWS || BX_PLATFORM_XBOX360
+#endif // BX_PLATFORM_WINDOWS
 	}
 
 	Handle listen(uint32_t _ip, uint16_t _port, bool _raw, const char* _cert, const char* _key)
@@ -1146,10 +1152,6 @@ namespace bnet
 			return (a0<<24) | (a1<<16) | (a2<<8) | a3;
 		}
 
-#if BX_PLATFORM_XBOX360
-		// No DNS resolution on these platforms
-		return 0;
-#else
 		uint32_t ip = 0;
 		struct addrinfo* result = NULL;
 		struct addrinfo hints;
