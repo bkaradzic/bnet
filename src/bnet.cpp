@@ -1182,7 +1182,6 @@ namespace bnet
 		}
 
 		return ip;
-#endif // BX_PLATFORM_
 	}
 
 } // namespace bnet
