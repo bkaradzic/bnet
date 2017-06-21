@@ -173,5 +173,5 @@ int main(int _argc, const char* _argv[])
 	}
 
 	bnet::shutdown();
-	return EXIT_SUCCESS;
+	return bx::kExitSuccess;
 }
