@@ -6,7 +6,7 @@
 #include "bnet_p.h"
 
 #include <bx/endian.h>
-#include <bx/crtimpl.h>
+#include <bx/allocator.h>
 
 namespace bnet
 {
