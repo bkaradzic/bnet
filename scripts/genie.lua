@@ -64,7 +64,6 @@ function exampleProject(_name)
 
 	links {
 		"bnet",
-		"example-common",
 		"bx",
 	}
 
@@ -117,7 +116,6 @@ end
 group "libs"
 dofile "bnet.lua"
 dofile(path.join(BX_DIR, "scripts/bx.lua"))
-dofile "example-common.lua"
 
 group "examples"
 exampleProject("00-chat")
