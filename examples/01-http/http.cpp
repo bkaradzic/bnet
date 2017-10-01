@@ -5,21 +5,17 @@
 
 #include <bnet/bnet.h>
 
-#include <stdio.h>
-#include <string.h>
-#include <stdint.h>
 #include <set>
 #include <malloc.h>
 
 #include <bx/string.h>
-
-#include "../common/url.h"
+#include <bx/url.h>
 
 bnet::Handle httpSendRequest(uint32_t _ip, uint16_t _port, const char* _request, bool secure)
 {
 	bnet::Handle handle = bnet::connect(_ip, _port, true, secure);
 
-	bnet::Message* out = bnet::alloc(handle, (uint16_t)strlen(_request) );
+	bnet::Message* out = bnet::alloc(handle, (uint16_t)bx::strLen(_request) );
 	bx::memCopy(out->data, _request, out->size);
 	bnet::send(out);
 	bnet::notify(handle, UINT64_C(0x123456789ABCDEF) );
@@ -74,17 +70,16 @@ int main(int /*_argc*/, const char* /*_argv*/[])
 	const char* url = "http://gravatar.com/avatar/cc47d6856403a62afc5c74d269b7e610.png";
 //	const char* url = "https://encrypted.google.com/";
 
-	char* tokens[UrlToken::Count];
-	char temp[1024];
-	tokenizeUrl(url, temp, sizeof(temp), tokens);
+	bx::UrlView urlView;
+	urlView.parse(url);
 
 	bool secure = false;
-	uint16_t port = 0;
-	if (0 == bx::strCmpI(tokens[UrlToken::Scheme], "http") )
+	uint32_t port = 0;
+	if (0 == bx::strCmpI("http", urlView.get(bx::UrlView::Scheme) ) )
 	{
 		port = 80;
 	}
-	else if (0 == bx::strCmpI(tokens[UrlToken::Scheme], "https") )
+	else if (0 == bx::strCmpI("https", urlView.get(bx::UrlView::Scheme) ) )
 	{
 		port = 443;
 		secure = true;
@@ -92,21 +87,27 @@ int main(int /*_argc*/, const char* /*_argv*/[])
 
 	if (0 != port)
 	{
-		uint32_t ip = bnet::toIpv4(tokens[UrlToken::Host]);
-		if ('\0' != tokens[UrlToken::Port][0])
+		char host[1024];
+		strCopy(host, BX_COUNTOF(host), urlView.get(bx::UrlView::Host) );
+
+		uint32_t ip = bnet::toIpv4(host);
+		if (!urlView.get(bx::UrlView::Port).isEmpty() )
 		{
-			port = atoi(tokens[UrlToken::Port]);
+			bx::fromString(&port, urlView.get(bx::UrlView::Port) );
 		}
+
+		char path[1024];
+		strCopy(path, BX_COUNTOF(path), urlView.get(bx::UrlView::Path) );
 
 		char header[1024];
 		bx::snprintf(header
 				, sizeof(header)
-				, "GET /%s HTTP/1.0\r\nHost: %s\r\n\r\n"
-				, tokens[UrlToken::Path]
-				, tokens[UrlToken::Host]
+				, "GET %s HTTP/1.0\r\nHost: %s\r\n\r\n"
+				, path
+				, host
 				);
 
-		bnet::Handle handle = httpSendRequest(ip, port, header, secure);
+		bnet::Handle handle = httpSendRequest(ip, uint16_t(port), header, secure);
 
 		uint32_t size = 0;
 		uint8_t* data = NULL;
