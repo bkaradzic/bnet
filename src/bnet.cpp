@@ -234,6 +234,10 @@ namespace bnet
 				m_outgoing.push(_msg);
 				update();
 			}
+			else
+			{
+				msgRelease(_msg);
+			}
 		}
 
 		void update()
