@@ -7,7 +7,7 @@
 #define BNET_H_HEADER_GUARD
 
 #include <stdint.h> // uint32_t
-#include <stdlib.h> // size_t
+#include <stdlib.h> // NULL
 
 #define BNET_HANDLE(_name) struct _name { uint16_t idx; }
 
