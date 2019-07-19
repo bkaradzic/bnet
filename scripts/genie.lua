@@ -69,9 +69,9 @@ function exampleProject(_name)
 
 	configuration { "vs* or mingw*" }
 		links {
+			"psapi",
 			"ws2_32",
 		}
-
 
 	if _OPTIONS["with-openssl"] then
 		configuration { "x32", "vs*" }
