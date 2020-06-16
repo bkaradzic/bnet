@@ -228,7 +228,7 @@ namespace bnet
 
 		void send(Message* _msg)
 		{
-			BX_CHECK(m_raw || _msg->data[0] >= MessageId::UserDefined, "Sending message with MessageId below UserDefined is not allowed!");
+			BX_ASSERT(m_raw || _msg->data[0] >= MessageId::UserDefined, "Sending message with MessageId below UserDefined is not allowed!");
 			if (INVALID_SOCKET != m_socket)
 			{
 				m_outgoing.push(_msg);
@@ -471,7 +471,7 @@ namespace bnet
 				break;
 			}
 
-			BX_CHECK(false, "You shoud not be here!");
+			BX_ASSERT(false, "You shoud not be here!");
 			return true;
 		}
 
@@ -887,7 +887,7 @@ namespace bnet
 
 		void disconnect(Handle _handle, bool _finish)
 		{
-			BX_CHECK(_handle.idx < m_connections->getMaxHandles(), "Invalid handle %d!", _handle.idx);
+			BX_ASSERT(_handle.idx < m_connections->getMaxHandles(), "Invalid handle %d!", _handle.idx);
 
 			Connection* connection = { m_connections->getFromHandle(_handle.idx) };
 			if (_finish
@@ -910,7 +910,7 @@ namespace bnet
 
 		void notify(Handle _handle, uint64_t _userData)
 		{
-			BX_CHECK(_handle.idx == invalidHandle.idx // loopback
+			BX_ASSERT(_handle.idx == invalidHandle.idx // loopback
 			      || _handle.idx < m_connections->getMaxHandles(), "Invalid handle %d!", _handle.idx);
 
 			if (invalidHandle.idx != _handle.idx)
@@ -932,7 +932,7 @@ namespace bnet
 
 		void send(Message* _msg)
 		{
-			BX_CHECK(_msg->handle.idx == invalidHandle.idx // loopback
+			BX_ASSERT(_msg->handle.idx == invalidHandle.idx // loopback
 			      || _msg->handle.idx < m_connections->getMaxHandles(), "Invalid handle %d!", _msg->handle.idx);
 
 			if (invalidHandle.idx != _msg->handle.idx)
