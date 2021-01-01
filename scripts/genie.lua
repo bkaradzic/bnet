@@ -94,7 +94,7 @@ function exampleProject(_name)
 			"-shared",
 		}
 
-	configuration { "osx" }
+	configuration { "osx*" }
 		linkoptions {
 			"-framework Cocoa",
 		}
