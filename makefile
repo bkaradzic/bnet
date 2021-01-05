@@ -19,9 +19,12 @@ GENIE?=$(BX_DIR)/tools/bin/$(OS)/genie
 
 all:
 	$(GENIE)                       vs2017
+	$(GENIE)                       vs2019
 	$(GENIE) --gcc=android-arm     gmake
 	$(GENIE) --gcc=android-x86     gmake
 	$(GENIE) --gcc=asmjs           gmake
+	$(GENIE) --gcc=osx-x64         gmake
+	$(GENIE) --gcc=osx-arm64       gmake
 	$(GENIE) --gcc=ios-arm         gmake
 	$(GENIE) --gcc=ios-arm64       gmake
 	$(GENIE) --gcc=ios-simulator   gmake
@@ -69,17 +72,13 @@ mingw-gcc-release64: .build/projects/gmake-mingw-gcc
 	make -R -C .build/projects/gmake-mingw-gcc config=release64
 mingw-gcc: mingw-gcc-debug32 mingw-gcc-release32 mingw-gcc-debug64 mingw-gcc-release64
 
-.build/projects/gmake-osx:
-	$(GENIE) --gcc=osx gmake
-osx-debug32: .build/projects/gmake-osx
-	make -C .build/projects/gmake-osx config=debug32
-osx-release32: .build/projects/gmake-osx
-	make -C .build/projects/gmake-osx config=release32
-osx-debug64: .build/projects/gmake-osx
-	make -C .build/projects/gmake-osx config=debug64
-osx-release64: .build/projects/gmake-osx
-	make -C .build/projects/gmake-osx config=release64
-osx: osx-debug32 osx-release32 osx-debug64 osx-release64
+.build/projects/gmake-osx-x64:
+	$(GENIE) --gcc=osx-x64 gmake
+osx-x64-debug: .build/projects/gmake-osx-x64 ## Build - macOS x64 Debug
+	$(MAKE) -C .build/projects/gmake-osx-x64 config=debug
+osx-x64-release: .build/projects/gmake-osx-x64 ## Build - macOS x64 Release
+	$(MAKE) -C .build/projects/gmake-osx-x64 config=release
+osx-x64: osx-x64-debug osx-x64-release ## Build - macOS x64 Debug and Release
 
 .build/projects/gmake-ios-arm:
 	$(GENIE) --gcc=ios-arm gmake
@@ -97,7 +96,7 @@ ios-simulator-release: .build/projects/gmake-ios-simulator
 	make -R -C .build/projects/gmake-ios-simulator config=release
 ios-simulator: ios-simulator-debug ios-simulator-release
 
-build-darwin: osx
+build-darwin: osx-x64
 
 build-linux: linux-debug64 linux-release64
 
