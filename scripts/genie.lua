@@ -42,6 +42,10 @@ toolchain(BNET_BUILD_DIR, BNET_THIRD_PARTY_DIR)
 function copyLib()
 end
 
+group "libs"
+dofile(path.join(BX_DIR, "scripts/bx.lua"))
+dofile "bnet.lua"
+
 function exampleProject(_name)
 
 	project ("example-" .. _name)
@@ -53,7 +57,6 @@ function exampleProject(_name)
 	debugdir (path.join(BNET_DIR, "examples/runtime") )
 
 	includedirs {
-		path.join(BX_DIR, "include"),
 		path.join(BNET_DIR, "include"),
 	}
 
@@ -64,8 +67,9 @@ function exampleProject(_name)
 
 	links {
 		"bnet",
-		"bx",
 	}
+
+	using_bx()
 
 	configuration { "vs* or mingw*" }
 		links {
@@ -112,10 +116,6 @@ function exampleProject(_name)
 
 	strip()
 end
-
-group "libs"
-dofile "bnet.lua"
-dofile(path.join(BX_DIR, "scripts/bx.lua"))
 
 group "examples"
 exampleProject("00-chat")

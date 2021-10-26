@@ -3,9 +3,16 @@ project "bnet"
 	kind "StaticLib"
 
 	includedirs {
-		path.join(BX_DIR, "include"),
 		path.join(BNET_DIR, "include"),
 	}
+
+	files {
+		path.join(BNET_DIR, "include/**.h"),
+		path.join(BNET_DIR, "src/**.cpp"),
+		path.join(BNET_DIR, "src/**.h"),
+	}
+
+	using_bx()
 
 	configuration { "x32", "vs*" }
 		includedirs { path.join(BNET_DIR, "3rdparty/openssl/lib/win32_", _ACTION, "include") }
@@ -22,17 +29,6 @@ project "bnet"
 	configuration { "default-linux", "x64" }
 		includedirs { path.join(BNET_DIR, "3rdparty/openssl/lib/linux-generic64/include") }
 
-	configuration "Debug"
-		defines {
-			"BNET_CONFIG_DEBUG=1",
-		}
-
 	configuration {}
-
-	files {
-		path.join(BNET_DIR, "include/**.h"),
-		path.join(BNET_DIR, "src/**.cpp"),
-		path.join(BNET_DIR, "src/**.h"),
-	}
 
 	copyLib()

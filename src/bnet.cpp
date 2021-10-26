@@ -13,7 +13,7 @@ namespace bnet
 	static bx::DefaultAllocator s_allocatorStub;
 	bx::AllocatorI* g_allocator = &s_allocatorStub;
 
-#if BNET_CONFIG_OPENSSL && BNET_CONFIG_DEBUG
+#if BNET_CONFIG_OPENSSL && BX_CONFIG_DEBUG
 
 	static void getSslErrorInfo()
 	{
@@ -28,7 +28,7 @@ namespace bnet
 #	define TRACE_SSL_ERROR() getSslErrorInfo()
 #else
 #	define TRACE_SSL_ERROR()
-#endif // BNET_CONFIG_OPENSSL && BNET_CONFIG_DEBUG
+#endif // BNET_CONFIG_OPENSSL && BX_CONFIG_DEBUG
 
 	int getLastError()
 	{
@@ -506,7 +506,7 @@ namespace bnet
 				if (1 == err)
 				{
 					m_sslHandshake = false;
-#	if BNET_CONFIG_DEBUG
+#	if BX_CONFIG_DEBUG
 					X509* cert = SSL_get_peer_certificate(m_ssl);
 					BX_TRACE("Server certificate:");
 
@@ -520,7 +520,7 @@ namespace bnet
 					OPENSSL_free(temp);
 
 					X509_free(cert);
-#	endif // BNET_CONFIG_DEBUG
+#	endif // BX_CONFIG_DEBUG
 
 					long result = SSL_get_verify_result(m_ssl);
 					if (X509_V_OK != result)
@@ -770,9 +770,9 @@ namespace bnet
 			CRYPTO_get_mem_functions(&m_sslMalloc, &m_sslRealloc, &m_sslFree);
 			CRYPTO_set_mem_functions(sslMalloc, sslRealloc, sslFree);
 			SSL_library_init();
-#	if BNET_CONFIG_DEBUG
+#	if BX_CONFIG_DEBUG
 			SSL_load_error_strings();
-#	endif // BNET_CONFIG_DEBUG
+#	endif // BX_CONFIG_DEBUG
 			m_sslCtx = SSL_CTX_new(SSLv23_client_method() );
 			SSL_CTX_set_verify(m_sslCtx, SSL_VERIFY_NONE, NULL);
 			if (NULL != _certs)

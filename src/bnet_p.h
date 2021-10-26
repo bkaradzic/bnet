@@ -7,36 +7,11 @@
 #define BNET_P_H_HEADER_GUARD
 
 #include <bnet/bnet.h>
-
-#ifndef BNET_CONFIG_DEBUG
-#	define BNET_CONFIG_DEBUG 0
-#endif // BNET_CONFIG_DEBUG
-
-#if BNET_CONFIG_DEBUG
-#	define BX_TRACE(_format, ...) \
-				do { \
-					bx::debugPrintf(BX_FILE_LINE_LITERAL "BNET " _format "\n", ##__VA_ARGS__); \
-				} while(0)
-
-#	define BX_CHECK(_condition, _format, ...) \
-				do { \
-					if (!(_condition) ) \
-					{ \
-						BX_TRACE(BX_FILE_LINE_LITERAL _format, ##__VA_ARGS__); \
-						bx::debugBreak(); \
-					} \
-				} while(0)
-#endif // 0
-
 #include <bx/bx.h>
 
 #ifndef BNET_CONFIG_OPENSSL
 #	define BNET_CONFIG_OPENSSL 0 //(BX_PLATFORM_WINDOWS && BX_COMPILER_MSVC) || BX_PLATFORM_ANDROID || BX_PLATFORM_LINUX
 #endif // BNET_CONFIG_OPENSSL
-
-#ifndef BNET_CONFIG_DEBUG
-#	define BNET_CONFIG_DEBUG 0
-#endif // BNET_CONFIG_DEBUG
 
 #ifndef BNET_CONFIG_CONNECT_TIMEOUT_SECONDS
 #	define BNET_CONFIG_CONNECT_TIMEOUT_SECONDS 5
