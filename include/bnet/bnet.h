@@ -125,7 +125,7 @@ namespace bnet
 
 	/// Process receive.
 	///
-	/// @returns Incomming message object. Must be released by calling `bnet::release`.
+	/// @returns Incoming message object. Must be released by calling `bnet::release`.
 	///
 	IncomingMessage* recv();
 

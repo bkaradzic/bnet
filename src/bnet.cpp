@@ -471,7 +471,7 @@ namespace bnet
 				break;
 			}
 
-			BX_ASSERT(false, "You shoud not be here!");
+			BX_ASSERT(false, "You should not be here!");
 			return true;
 		}
 
