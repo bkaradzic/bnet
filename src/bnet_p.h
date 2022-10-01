@@ -206,8 +206,9 @@ namespace bnet
 	class RecvRingBuffer
 	{
 		BX_CLASS(RecvRingBuffer
+			, NO_DEFAULT_CTOR
 			, NO_COPY
-			, NO_ASSIGNMENT
+			, NO_COPY_ASSIGNMENT
 			);
 
 	public:
@@ -273,8 +274,6 @@ namespace bnet
 #endif // BNET_CONFIG_OPENSSL
 
 	private:
-		RecvRingBuffer();
-
 		bx::RingBufferControl& m_control;
 		uint32_t m_write;
 		uint32_t m_reserved;
