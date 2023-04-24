@@ -102,14 +102,14 @@ namespace bnet
 	public:
 		FreeList(uint16_t _max)
 		{
-			m_memBlock = BX_ALLOC(g_allocator, _max*sizeof(Ty) );
+			m_memBlock = bx::alloc(g_allocator, _max*sizeof(Ty) );
 			m_handleAlloc = bx::createHandleAlloc(g_allocator, _max);
 		}
 
 		~FreeList()
 		{
 			bx::destroyHandleAlloc(g_allocator, m_handleAlloc);
-			BX_FREE(g_allocator, m_memBlock);
+			bx::free(g_allocator, m_memBlock);
 		}
 
 		Ty* create()

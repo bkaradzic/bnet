@@ -67,7 +67,12 @@ int main(int _argc, const char* _argv[])
 	const char* portOpt = cmdLine.findOption('p');
 	if (NULL != portOpt)
 	{
-		port = atoi(portOpt);
+		int32_t result;
+		if (bx::fromString(&result, portOpt)
+		&&  result < UINT16_MAX)
+		{
+			port = uint16_t(result);
+		}
 	}
 
 	bool server = cmdLine.hasArg('s', "server");

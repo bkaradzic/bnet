@@ -101,7 +101,7 @@ namespace bnet
 		Connection()
 			: m_socket(INVALID_SOCKET)
 			, m_handle(invalidHandle)
-			, m_incomingBuffer( (uint8_t*)BX_ALLOC(g_allocator, BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE) )
+			, m_incomingBuffer( (uint8_t*)bx::alloc(g_allocator, BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE) )
 			, m_incoming(BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE)
 			, m_recv(m_incoming, (char*)m_incomingBuffer)
 #if BNET_CONFIG_OPENSSL
@@ -116,7 +116,7 @@ namespace bnet
 
 		~Connection()
 		{
-			BX_FREE(g_allocator, m_incomingBuffer);
+			bx::free(g_allocator, m_incomingBuffer);
 		}
 
 		void connect(Handle _handle, uint32_t _ip, uint16_t _port, bool _raw, SSL_CTX* _sslCtx)
@@ -815,11 +815,11 @@ namespace bnet
 				release(msg);
 			}
 
-			BX_DELETE(g_allocator, m_connections);
+			bx::deleteObject(g_allocator, m_connections);
 
 			if (NULL != m_listenSockets)
 			{
-				BX_DELETE(g_allocator, m_listenSockets);
+				bx::deleteObject(g_allocator, m_listenSockets);
 			}
 
 #if BNET_CONFIG_OPENSSL
@@ -1056,7 +1056,7 @@ namespace bnet
 	Message* msgAlloc(Handle _handle, uint16_t _size, bool _incoming, Internal::Enum _type)
 	{
 		uint16_t offset = _incoming ? 0 : 2;
-		Message* msg = (Message*)BX_ALLOC(g_allocator, sizeof(Message) + offset + _size);
+		Message* msg = (Message*)bx::alloc(g_allocator, sizeof(Message) + offset + _size);
 		msg->size = _size;
 		msg->handle = _handle;
 		uint8_t* data = (uint8_t*)msg + sizeof(Message);
@@ -1067,7 +1067,7 @@ namespace bnet
 
 	void msgRelease(Message* _msg)
 	{
-		BX_FREE(g_allocator, _msg);
+		bx::free(g_allocator, _msg);
 	}
 
 	void init(uint16_t _maxConnections, uint16_t _maxListenSockets, const char* _certs[], bx::AllocatorI* _allocator)
