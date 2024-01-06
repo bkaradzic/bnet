@@ -27,8 +27,6 @@ all:
 	$(GENIE) --gcc=osx-arm64       gmake
 	$(GENIE) --gcc=ios-arm         gmake
 	$(GENIE) --gcc=ios-arm64       gmake
-	$(GENIE) --gcc=ios-simulator   gmake
-	$(GENIE) --gcc=ios-simulator64 gmake
 	$(GENIE) --gcc=rpi             gmake
 	$(GENIE)                       xcode8
 
@@ -87,14 +85,6 @@ ios-arm-debug: .build/projects/gmake-ios-arm
 ios-arm-release: .build/projects/gmake-ios-arm
 	make -R -C .build/projects/gmake-ios-arm config=release
 ios-arm: ios-arm-debug ios-arm-release
-
-.build/projects/gmake-ios-simulator:
-	$(GENIE) --gcc=ios-simulator gmake
-ios-simulator-debug: .build/projects/gmake-ios-simulator
-	make -R -C .build/projects/gmake-ios-simulator config=debug
-ios-simulator-release: .build/projects/gmake-ios-simulator
-	make -R -C .build/projects/gmake-ios-simulator config=release
-ios-simulator: ios-simulator-debug ios-simulator-release
 
 build-darwin: osx-x64
 
