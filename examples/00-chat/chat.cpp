@@ -53,7 +53,7 @@ static const char* s_key =
 void printMsg(const bnet::Message* _msg)
 {
 	uint16_t len = _msg->size;
-	char* temp = (char*)alloca(len);
+	char* temp = (char*)BX_STACK_ALLOC(len);
 	bx::memCopy(temp, &_msg->data[1], len-1);
 	temp[len-1] = '\0';
 	printf("UserMessage %d: %s\n", _msg->data[0], temp);
