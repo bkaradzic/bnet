@@ -5,11 +5,11 @@
 
 #include <bnet/bnet.h>
 
-#include <set>
 #include <malloc.h>
 
 #include <bx/string.h>
 #include <bx/url.h>
+#include <bx/file.h>
 
 bnet::Handle httpSendRequest(uint32_t _ip, uint16_t _port, const char* _request, bool secure)
 {
@@ -115,7 +115,7 @@ int main(int /*_argc*/, const char* /*_argv*/[])
 		bool cont = bnet::isValid(handle);
 		if (cont)
 		{
-			printf("Connecting to %s (%d.%d.%d.%d:%d)\n"
+			bx::printf("Connecting to %s (%d.%d.%d.%d:%d)\n"
 				, url
 				, ip>>24
 				, (ip>>16)&0xff
@@ -135,7 +135,7 @@ int main(int /*_argc*/, const char* /*_argv*/[])
 					switch (msg->data[0])
 					{
 					case bnet::MessageId::Notify:
-						printf("notify!\n");
+						bx::printf("notify!\n");
 						break;
 
 					case bnet::MessageId::LostConnection:
@@ -143,16 +143,25 @@ int main(int /*_argc*/, const char* /*_argv*/[])
 						cont = false;
 						if (NULL != data)
 						{
-							FILE* file = fopen("http.txt", "wb");
-							fwrite(data, 1, size, file);
-							fclose(file);
-							printf("Received total %d. Data saved into http.txt.\n", size);
+							bx::FileWriter writer;
+							bx::Error err;
+							if (bx::open(&writer, "http.txt", false, &err) )
+							{
+								bx::write(&writer, data, size, &err);
+								bx::close(&writer);
+
+								bx::printf("Received total %d. Data saved into http.txt.\n", size);
+							}
+							else
+							{
+								bx::printf("Failed to open http.txt!");
+							}
 						}
 						break;
 
 					case bnet::MessageId::RawData:
 						{
-							printf("# raw %d bytes.\n", msg->size);
+							bx::printf("# raw %d bytes.\n", msg->size);
 							uint32_t pos = size;
 							size += msg->size-1;
 							data = (uint8_t*)realloc(data, size+1);
