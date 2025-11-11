@@ -40,8 +40,6 @@ jobs:
           cd bnet
           ..\bx\tools\bin\windows\genie.exe vs2022
           msbuild ".build/projects/vs2022/bnet.sln" /m /v:minimal /p:Configuration=${{ matrix.config }} /p:Platform=${{ matrix.platform }}
-      - name: Check
-        shell: cmd
   mingw:
     strategy:
       fail-fast: true
