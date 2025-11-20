@@ -295,7 +295,7 @@ namespace bnet
 		{
 			if (m_raw)
 			{
-				uint16_t available = uint16_t(bx::uint32_min(m_incoming.available(), maxMessageSize-1) );
+				uint16_t available = uint16_t(bx::uint32_min(m_incoming.getNumUsed(), maxMessageSize-1) );
 
 				if (0 < available)
 				{
@@ -307,7 +307,7 @@ namespace bnet
 			}
 			else
 			{
-				uint32_t available = bx::uint32_min(m_incoming.available(), maxMessageSize);
+				uint32_t available = bx::uint32_min(m_incoming.getNumUsed(), maxMessageSize);
 
 				while (0 < available)
 				{
@@ -351,7 +351,7 @@ namespace bnet
 						}
 					}
 
-					available = bx::uint32_min(m_incoming.available(), maxMessageSize);
+					available = bx::uint32_min(m_incoming.getNumUsed(), maxMessageSize);
 				}
 			}
 		}
