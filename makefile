@@ -39,11 +39,21 @@ projgen: ## Generate project files for all configurations.
 	$(GENIE) --gcc=linux-gcc       gmake
 	$(GENIE) --gcc=linux-clang     gmake
 	$(GENIE) --gcc=osx-arm64       gmake
+	$(GENIE) --gcc=osx-x64         gmake
 	$(GENIE) --xcode=osx           xcode9
 	$(GENIE) --xcode=ios           xcode9
+	$(GENIE) --gcc=android-arm     gmake
 	$(GENIE) --gcc=android-arm64   gmake
 	$(GENIE) --gcc=ios-arm64       gmake
 	$(GENIE) --gcc=rpi             gmake
+
+.build/projects/gmake-android-arm:
+	$(GENIE) --gcc=android-arm gmake
+android-arm-debug: .build/projects/gmake-android-arm ## Build - Android ARM Debug
+	$(MAKE) -R -C .build/projects/gmake-android-arm config=debug
+android-arm-release: .build/projects/gmake-android-arm ## Build - Android ARM Release
+	$(MAKE) -R -C .build/projects/gmake-android-arm config=release
+android-arm: android-arm-debug android-arm-release ## Build - Android ARM Debug and Release
 
 .build/projects/gmake-android-arm64:
 	$(GENIE) --gcc=android-arm64 gmake
@@ -54,7 +64,7 @@ android-arm64-release: .build/projects/gmake-android-arm64 ## Build - Android AR
 android-arm64: android-arm64-debug android-arm64-release ## Build - Android ARM64 Debug and Release
 
 .build/projects/gmake-wasm:
-	$(GENIE) --gcc=wasm --with-combined-examples gmake
+	$(GENIE) --gcc=wasm gmake
 wasm-debug: .build/projects/gmake-wasm ## Build - Emscripten Debug
 	$(MAKE) -R -C .build/projects/gmake-wasm config=debug
 wasm-release: .build/projects/gmake-wasm ## Build - Emscripten Release
@@ -120,6 +130,14 @@ osx-arm64-debug: .build/projects/gmake-osx-arm64 ## Build - macOS ARM Debug
 osx-arm64-release: .build/projects/gmake-osx-arm64 ## Build - macOS ARM Release
 	$(MAKE) -C .build/projects/gmake-osx-arm64 config=release
 osx-arm64: osx-arm64-debug osx-arm64-release ## Build - macOS ARM Debug and Release
+
+.build/projects/gmake-osx-x64:
+	$(GENIE) --gcc=osx-x64 gmake
+osx-x64-debug: .build/projects/gmake-osx-x64 ## Build - macOS x64 Debug
+	$(MAKE) -C .build/projects/gmake-osx-x64 config=debug
+osx-x64-release: .build/projects/gmake-osx-x64 ## Build - macOS x64 Release
+	$(MAKE) -C .build/projects/gmake-osx-x64 config=release
+osx-x64: osx-x64-debug osx-x64-release ## Build - macOS x64 Debug and Release
 
 .build/projects/gmake-ios-arm64:
 	$(GENIE) --gcc=ios-arm64 gmake

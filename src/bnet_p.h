@@ -32,6 +32,7 @@
 #	include "inet_socket.h"
 #elif  BX_PLATFORM_LINUX \
 	|| BX_PLATFORM_ANDROID \
+	|| BX_PLATFORM_EMSCRIPTEN \
 	|| BX_PLATFORM_OSX \
 	|| BX_PLATFORM_IOS
 #	include <memory.h>
