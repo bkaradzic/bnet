@@ -36,6 +36,7 @@ namespace bnet
 		return WSAGetLastError();
 #elif  BX_PLATFORM_LINUX \
 	|| BX_PLATFORM_ANDROID \
+	|| BX_PLATFORM_EMSCRIPTEN \
 	|| BX_PLATFORM_OSX \
 	|| BX_PLATFORM_IOS
 		return errno;
@@ -74,6 +75,7 @@ namespace bnet
 		::ioctlsocket(_socket, FIONBIO, &opt);
 #elif  BX_PLATFORM_LINUX \
 	|| BX_PLATFORM_ANDROID \
+	|| BX_PLATFORM_EMSCRIPTEN \
 	|| BX_PLATFORM_OSX \
 	|| BX_PLATFORM_IOS
 		::fcntl(_socket, F_SETFL, O_NONBLOCK);
@@ -295,7 +297,7 @@ namespace bnet
 		{
 			if (m_raw)
 			{
-				uint16_t available = uint16_t(bx::uint32_min(m_incoming.getNumUsed(), maxMessageSize-1) );
+				uint16_t available = uint16_t(bx::min<uint32_t>(m_incoming.getNumUsed(), maxMessageSize-1) );
 
 				if (0 < available)
 				{
@@ -307,7 +309,7 @@ namespace bnet
 			}
 			else
 			{
-				uint32_t available = bx::uint32_min(m_incoming.getNumUsed(), maxMessageSize);
+				uint32_t available = bx::min<uint32_t>(m_incoming.getNumUsed(), maxMessageSize);
 
 				while (0 < available)
 				{
@@ -351,7 +353,7 @@ namespace bnet
 						}
 					}
 
-					available = bx::uint32_min(m_incoming.getNumUsed(), maxMessageSize);
+					available = bx::min<uint32_t>(m_incoming.getNumUsed(), maxMessageSize);
 				}
 			}
 		}
