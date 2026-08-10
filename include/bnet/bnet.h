@@ -75,6 +75,15 @@ namespace bnet
 
 	/// Start listen for incoming connections.
 	///
+	/// @param _ip IPv4 address.
+	/// @param _port Port.
+	/// @param _raw Non-structured messages. When this is `false` bnet
+	///   frames messages.
+	/// @param _cert Certificate used to accept TLS/SSL connections. Either
+	///   inline PEM data, or path to PEM file. When set `_key` must be set too.
+	/// @param _key Private key matching `_cert`. Either inline PEM data, or
+	///   path to PEM file.
+	///
 	/// @returns Handle to connection object.
 	///
 	Handle listen(uint32_t _ip, uint16_t _port, bool _raw = false, const char* _cert = NULL, const char* _key = NULL);
@@ -96,6 +105,19 @@ namespace bnet
 	/// @returns Handle to connection object.
 	///
 	Handle connect(uint32_t _ip, uint16_t _port, bool _raw = false, bool _secure = false);
+
+	/// Connect to remote host by name.
+	///
+	/// @param _host Host name or IPv4 string. When `_secure` is set the host
+	///   name is also used for TLS Server Name Indication (SNI).
+	/// @param _port Port.
+	/// @param _raw Non-structured messages. When this is `false` bnet
+	///   frames messages.
+	/// @param _secure Create TLS/SSL connection.
+	///
+	/// @returns Handle to connection object.
+	///
+	Handle connect(const char* _host, uint16_t _port, bool _raw = false, bool _secure = false);
 
 	/// Disconnect from remote host.
 	///

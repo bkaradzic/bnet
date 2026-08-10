@@ -11,9 +11,14 @@
 #include <bx/url.h>
 #include <bx/file.h>
 
-bnet::Handle httpSendRequest(uint32_t _ip, uint16_t _port, const char* _request, bool secure)
+bnet::Handle httpSendRequest(const char* _host, uint16_t _port, const char* _request, bool secure)
 {
-	bnet::Handle handle = bnet::connect(_ip, _port, true, secure);
+	bnet::Handle handle = bnet::connect(_host, _port, true, secure);
+
+	if (!bnet::isValid(handle) )
+	{
+		return handle;
+	}
 
 	bnet::Message* out = bnet::alloc(handle, (uint16_t)bx::strLen(_request) );
 	bx::memCopy(out->data, _request, out->size);
@@ -67,8 +72,8 @@ int main(int /*_argc*/, const char* /*_argv*/[])
 {
 	bnet::init(1, 0, s_cert);
 
-	const char* url = "http://gravatar.com/avatar/cc47d6856403a62afc5c74d269b7e610.png";
-//	const char* url = "https://encrypted.google.com/";
+	const char* url = "https://gravatar.com/avatar/cc47d6856403a62afc5c74d269b7e610.png";
+//	const char* url = "http://gravatar.com/avatar/cc47d6856403a62afc5c74d269b7e610.png";
 
 	bx::UrlView urlView;
 	urlView.parse(url);
@@ -107,7 +112,7 @@ int main(int /*_argc*/, const char* /*_argv*/[])
 				, host
 				);
 
-		bnet::Handle handle = httpSendRequest(ip, uint16_t(port), header, secure);
+		bnet::Handle handle = httpSendRequest(host, uint16_t(port), header, secure);
 
 		uint32_t size = 0;
 		uint8_t* data = NULL;

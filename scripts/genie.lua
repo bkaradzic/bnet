@@ -3,11 +3,6 @@
 -- License: https://github.com/bkaradzic/bnet/blob/master/LICENSE
 --
 
-newoption {
-	trigger = "with-openssl",
-	description = "Enable OpenSSL integration.",
-}
-
 solution "bnet"
 	configurations {
 		"Debug",
@@ -75,21 +70,8 @@ function exampleProject(_name)
 		links {
 			"psapi",
 			"ws2_32",
+			"bcrypt",
 		}
-
-	if _OPTIONS["with-openssl"] then
-		configuration { "x32", "vs*" }
-			libdirs { path.join(BNET_DIR, "3rdparty/openssl/lib/win32_", _ACTION, "lib") }
-
-		configuration { "x64", "vs*" }
-			libdirs { path.join(BNET_DIR, "3rdparty/openssl/lib/win64_", _ACTION, "lib") }
-
-		configuration { "vs* or mingw*" }
-			links {
-				"libeay32",
-				"ssleay32",
-			}
-	end
 
 	configuration { "android*" }
 		kind "ConsoleApp"

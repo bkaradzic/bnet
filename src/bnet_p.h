@@ -9,17 +9,7 @@
 #include <bnet/bnet.h>
 #include <bx/bx.h>
 
-#ifndef BNET_CONFIG_OPENSSL
-#	define BNET_CONFIG_OPENSSL 0 //(BX_PLATFORM_WINDOWS && BX_COMPILER_MSVC) || BX_PLATFORM_ANDROID || BX_PLATFORM_LINUX
-#endif // BNET_CONFIG_OPENSSL
-
-#ifndef BNET_CONFIG_CONNECT_TIMEOUT_SECONDS
-#	define BNET_CONFIG_CONNECT_TIMEOUT_SECONDS 5
-#endif // BNET_CONFIG_CONNECT_TIMEOUT_SECONDS
-
-#ifndef BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE
-#	define BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE (64<<10)
-#endif // BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE
+#include "config.h"
 
 #if BX_PLATFORM_WINDOWS
 #	if BX_PLATFORM_WINDOWS
@@ -29,7 +19,6 @@
 #		include <ws2tcpip.h>
 #	endif
 #	define socklen_t int32_t
-#	include "inet_socket.h"
 #elif  BX_PLATFORM_LINUX \
 	|| BX_PLATFORM_ANDROID \
 	|| BX_PLATFORM_OSX \
@@ -52,7 +41,6 @@
 #	define SOCKET_ERROR (-1)
 #	define INVALID_SOCKET (-1)
 #	define closesocket close
-#	include "inet_socket.h"
 #endif // BX_PLATFORM_
 
 #include <bx/debug.h>
@@ -63,16 +51,6 @@
 
 #include <new> // placement new
 #include <stdio.h> // sscanf
-
-#if BNET_CONFIG_OPENSSL
-#	include <openssl/err.h>
-#	include <openssl/ssl.h>
-#	include <openssl/crypto.h>
-#else
-#	define SSL_CTX void
-#	define X509 void
-#	define EVP_PKEY void
-#endif // BNET_CONFIG_OPENSSL
 
 #include <list>
 
@@ -90,7 +68,80 @@ namespace bnet
 
 	extern bx::AllocatorI* g_allocator;
 
-	Handle ctxAccept(Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, X509* _cert, EVP_PKEY* _key);
+	struct TlsContext;
+	struct TlsConnection;
+
+#if BNET_CONFIG_TLS
+	/// Create TLS context used by outgoing (client) connections.
+	TlsContext* tlsContextCreate();
+
+	/// Create TLS context used by incoming (server) connections. Both `_cert`
+	/// and `_key` are either inline PEM data, or path to PEM file.
+	TlsContext* tlsServerContextCreate(const char* _cert, const char* _key);
+
+	/// Increment TLS context reference count.
+	TlsContext* tlsContextAddRef(TlsContext* _ctx);
+
+	/// Decrement TLS context reference count, and destroy it when it reaches zero.
+	void tlsContextDestroy(TlsContext* _ctx);
+
+	TlsConnection* tlsConnect(TlsContext* _ctx, SOCKET _socket, const char* _hostname);
+	TlsConnection* tlsAccept(TlsContext* _ctx, SOCKET _socket);
+	void tlsDestroy(TlsConnection* _tls);
+	int tlsHandshake(TlsConnection* _tls);
+	int tlsRecv(TlsConnection* _tls, char* _data, int _len);
+	int tlsSend(TlsConnection* _tls, const char* _data, int _len);
+#else
+	inline TlsContext* tlsContextCreate()
+	{
+		return NULL;
+	}
+
+	inline TlsContext* tlsServerContextCreate(const char* /*_cert*/, const char* /*_key*/)
+	{
+		return NULL;
+	}
+
+	inline TlsContext* tlsContextAddRef(TlsContext* /*_ctx*/)
+	{
+		return NULL;
+	}
+
+	inline void tlsContextDestroy(TlsContext* /*_ctx*/)
+	{
+	}
+
+	inline TlsConnection* tlsConnect(TlsContext* /*_ctx*/, SOCKET /*_socket*/, const char* /*_hostname*/)
+	{
+		return NULL;
+	}
+
+	inline TlsConnection* tlsAccept(TlsContext* /*_ctx*/, SOCKET /*_socket*/)
+	{
+		return NULL;
+	}
+
+	inline void tlsDestroy(TlsConnection* /*_tls*/)
+	{
+	}
+
+	inline int tlsHandshake(TlsConnection* /*_tls*/)
+	{
+		return -1;
+	}
+
+	inline int tlsRecv(TlsConnection* /*_tls*/, char* /*_data*/, int /*_len*/)
+	{
+		return -1;
+	}
+
+	inline int tlsSend(TlsConnection* /*_tls*/, const char* /*_data*/, int /*_len*/)
+	{
+		return -1;
+	}
+#endif // BNET_CONFIG_TLS
+
+	Handle ctxAccept(Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, TlsContext* _tlsCtx);
 	void ctxPush(Handle _handle, MessageId::Enum _id);
 	void ctxPush(Message* _msg);
 	Message* msgAlloc(Handle _handle, uint16_t _size, bool _incoming = false, Internal::Enum _type = Internal::None);
@@ -247,15 +298,15 @@ namespace bnet
 			return bytes;
 		}
 
-#if BNET_CONFIG_OPENSSL
-		int recv(SSL* _ssl)
+#if BNET_CONFIG_TLS
+		int recv(TlsConnection* _tls)
 		{
-			m_reserved += m_control.reserve(-1);
+			m_reserved += m_control.reserve(UINT32_MAX);
 			uint32_t end = (m_write + m_reserved) % m_control.m_size;
 			uint32_t wrap = end < m_write ? m_control.m_size - m_write : m_reserved;
 			char* to = &m_buffer[m_write];
 
-			int bytes = SSL_read(_ssl
+			int bytes = tlsRecv(_tls
 								, to
 								, wrap
 								);
@@ -270,7 +321,7 @@ namespace bnet
 
 			return bytes;
 		}
-#endif // BNET_CONFIG_OPENSSL
+#endif // BNET_CONFIG_TLS
 
 	private:
 		bx::RingBufferControl& m_control;
