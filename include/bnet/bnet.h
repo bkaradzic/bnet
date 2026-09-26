@@ -101,10 +101,12 @@ namespace bnet
 	/// @param _raw Non-structured messages. When this is `false` bnet
 	///   frames messages.
 	/// @param _secure Create TLS/SSL connection.
+	/// @param _hostname Host name used for TLS Server Name Indication (SNI).
+	///   Ignored when `_secure` is `false`.
 	///
 	/// @returns Handle to connection object.
 	///
-	Handle connect(uint32_t _ip, uint16_t _port, bool _raw = false, bool _secure = false);
+	Handle connect(uint32_t _ip, uint16_t _port, bool _raw = false, bool _secure = false, const char* _hostname = NULL);
 
 	/// Connect to remote host by name.
 	///

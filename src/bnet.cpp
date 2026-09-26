@@ -149,6 +149,7 @@ namespace bnet
 			}
 
 			setSockOpts(m_socket);
+			setNonBlock(m_socket);
 
 			const bool secure = _tlsCtx != NULL;
 			int err = connectsocket(m_socket, _ip, _port, secure);
@@ -164,8 +165,6 @@ namespace bnet
 				ctxPush(m_handle, MessageId::ConnectFailed);
 				return;
 			}
-
-			setNonBlock(m_socket);
 
 #if BNET_CONFIG_TLS
 			if (secure)
@@ -545,8 +544,24 @@ namespace bnet
 				return false;
 			}
 
-			m_tcpHandshake = !issocketready(m_socket);
-			return !m_tcpHandshake;
+			if (!issocketready(m_socket) )
+			{
+				return false;
+			}
+
+			int error = 0;
+			socklen_t len = sizeof(error);
+			if (0 != ::getsockopt(m_socket, SOL_SOCKET, SO_ERROR, (char*)&error, &len)
+			||  0 != error)
+			{
+				BX_TRACE("Disconnect %d - Connect failed. %d", m_handle.idx, error);
+				ctxPush(m_handle, MessageId::ConnectFailed);
+				disconnect();
+				return false;
+			}
+
+			m_tcpHandshake = false;
+			return true;
 		}
 
 		bool updateTlsHandshake()
@@ -1097,9 +1112,9 @@ namespace bnet
 		return s_ctx.stop(_handle);
 	}
 
-	Handle connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure)
+	Handle connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure, const char* _hostname)
 	{
-		return s_ctx.connect(_ip, _port, _raw, _secure, NULL);
+		return s_ctx.connect(_ip, _port, _raw, _secure, _secure ? _hostname : NULL);
 	}
 
 	Handle connect(const char* _host, uint16_t _port, bool _raw, bool _secure)
