@@ -14,9 +14,10 @@
 #if BX_PLATFORM_WINDOWS
 #	if BX_PLATFORM_WINDOWS
 #		if !defined(_WIN32_WINNT)
-#			define _WIN32_WINNT 0x0501
+#			define _WIN32_WINNT 0x0600 // WSAPoll
 #		endif
 #		include <ws2tcpip.h>
+#		include <io.h> // _unlink
 #	endif
 #	define socklen_t int32_t
 #elif  BX_PLATFORM_LINUX \
@@ -29,8 +30,11 @@
 #	include <fcntl.h>
 #	include <netdb.h>
 #	include <unistd.h>
+#	include <poll.h>
 #	include <sys/socket.h>
+#	include <sys/stat.h> // chmod
 #	include <sys/time.h> // gettimeofday
+#	include <sys/un.h> // sockaddr_un
 #	include <arpa/inet.h> // inet_addr
 #	include <netinet/in.h>
 #	include <netinet/tcp.h>
@@ -46,14 +50,15 @@
 
 #include <bx/debug.h>
 #include <bx/handlealloc.h>
+#include <bx/mutex.h>
+#include <bx/string.h>
 #include <bx/ringbuffer.h>
 #include <bx/timer.h>
 #include <bx/allocator.h>
+#include <bx/array.h>
 
 #include <new> // placement new
 #include <stdio.h> // sscanf
-
-#include <list>
 
 namespace bnet
 {
@@ -67,7 +72,8 @@ namespace bnet
 		};
 	};
 
-	extern bx::AllocatorI* g_allocator;
+	extern bx::AllocatorBlkI* g_allocatorBlk;
+	extern bx::AllocatorHandle g_allocatorHandle;
 
 	struct TlsContext;
 	struct TlsConnection;
@@ -142,7 +148,7 @@ namespace bnet
 	}
 #endif // BNET_CONFIG_TLS
 
-	Handle ctxAccept(Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, TlsContext* _tlsCtx);
+	Handle ctxAccept(Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, TlsContext* _tlsCtx, bool _local = false);
 	void ctxPush(Handle _handle, MessageId::Enum _id);
 	void ctxPush(Message* _msg);
 	Message* msgAlloc(Handle _handle, uint16_t _size, bool _incoming = false, Internal::Enum _type = Internal::None);
@@ -154,14 +160,19 @@ namespace bnet
 	public:
 		FreeList(uint16_t _max)
 		{
-			m_memBlock = bx::alloc(g_allocator, _max*sizeof(Ty) );
-			m_handleAlloc = bx::createHandleAlloc(g_allocator, _max);
+			m_memBlock = bx::allocPtr(g_allocatorBlk, _max*sizeof(Ty) );
+			m_handleAlloc = BX_NEW_PTR(g_allocatorBlk, bx::DynamicHandleAlloc)(g_allocatorHandle, _max);
 		}
 
 		~FreeList()
 		{
-			bx::destroyHandleAlloc(g_allocator, m_handleAlloc);
-			bx::free(g_allocator, m_memBlock);
+			for (uint16_t handle = getFirstHandle(); bx::kInvalidHandle != handle; handle = getFirstHandle() )
+			{
+				destroy(getFromHandle(handle) );
+			}
+
+			bx::deletePtr(m_handleAlloc);
+			bx::freePtr(m_memBlock);
 		}
 
 		Ty* create()
@@ -244,15 +255,19 @@ namespace bnet
 			return m_handleAlloc->getMaxHandles();
 		}
 
-		Ty* getFromHandleAt(uint16_t _at)
+		uint16_t getFirstHandle() const
 		{
-			uint16_t handle = m_handleAlloc->getHandleAt(_at);
-			return getFromHandle(handle);
+			return m_handleAlloc->findFirst();
+		}
+
+		uint16_t getNextHandle(uint16_t _handle) const
+		{
+			return m_handleAlloc->findNext(_handle);
 		}
 
 	private:
 		void* m_memBlock;
-		bx::HandleAlloc* m_handleAlloc;
+		bx::DynamicHandleAlloc* m_handleAlloc;
 	};
 
 	class RecvRingBuffer
@@ -335,6 +350,7 @@ namespace bnet
 	{
 	public:
 		MessageQueue()
+			: m_head(0)
 		{
 		}
 
@@ -344,14 +360,14 @@ namespace bnet
 
 		void push(Message* _msg)
 		{
-			m_queue.push_back(_msg);
+			m_queue.add(_msg);
 		}
 
 		Message* peek()
 		{
-			if (!m_queue.empty() )
+			if (m_head < m_queue.getCount() )
 			{
-				return m_queue.front();
+				return m_queue[m_head];
 			}
 
 			return NULL;
@@ -359,18 +375,36 @@ namespace bnet
 
 		Message* pop()
 		{
-			if (!m_queue.empty() )
+			const uint32_t count = m_queue.getCount();
+
+			if (m_head == count)
 			{
-				Message* msg = m_queue.front();
-				m_queue.pop_front();
-				return msg;
+				return NULL;
 			}
 
-			return NULL;
+			Message* msg = m_queue[m_head];
+			++m_head;
+
+			if (m_head == count)
+			{
+				m_queue.clear();
+				m_head = 0;
+			}
+			else if (m_head >= kCompactThreshold
+			     &&  m_head >= count/2)
+			{
+				m_queue.remove(0, bx::kOrdered, m_head);
+				m_head = 0;
+			}
+
+			return msg;
 		}
 
 	private:
-		std::list<Message*> m_queue;
+		static constexpr uint32_t kCompactThreshold = 64;
+
+		bx::ArrayT<Message*> m_queue;
+		uint32_t m_head;
 	};
 
 } // namespace bnet

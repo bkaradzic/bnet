@@ -3,15 +3,24 @@
  * License: https://github.com/bkaradzic/bnet/blob/master/LICENSE
  */
 
+#if defined(__linux__) && !defined(_GNU_SOURCE)
+#	define _GNU_SOURCE // struct ucred, SO_PEERCRED
+#endif // defined(__linux__) && !defined(_GNU_SOURCE)
+
 #include "bnet_p.h"
 
 #include <bx/endian.h>
-#include <bx/allocator.h>
+#include <bx/allocators.h>
+#include <bx/cpu.h>
+#include <bx/hashmap.h>
+#include <bx/readerwriter.h>
 
 namespace bnet
 {
-	static bx::DefaultAllocator s_allocatorStub;
-	bx::AllocatorI* g_allocator = &s_allocatorStub;
+	static bx::PointerAllocator* s_allocatorBlk = NULL;
+	alignas(bx::PointerAllocator) static uint8_t s_allocatorBlkStorage[sizeof(bx::PointerAllocator)];
+	bx::AllocatorBlkI* g_allocatorBlk = NULL;
+	bx::AllocatorHandle g_allocatorHandle = { bx::kAllocatorHandleDefault };
 
 
 	int getLastError()
@@ -63,7 +72,7 @@ namespace bnet
 #endif // BX_PLATFORM_
 	}
 
-	static void setSockOpts(SOCKET _socket)
+	static void setSockOpts(SOCKET _socket, bool _tcp = true)
 	{
 		int result;
 
@@ -71,9 +80,71 @@ namespace bnet
 		result = ::setsockopt(_socket, SOL_SOCKET, SO_RCVBUF, (char*)&win, sizeof(win) );
 		result = ::setsockopt(_socket, SOL_SOCKET, SO_SNDBUF, (char*)&win, sizeof(win) );
 
-		int noDelay = 1;
-		result = ::setsockopt(_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&noDelay, sizeof(noDelay) );
+		if (_tcp)
+		{
+			int noDelay = 1;
+			result = ::setsockopt(_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&noDelay, sizeof(noDelay) );
+		}
+
 		BX_UNUSED(result);
+	}
+
+#if BX_PLATFORM_WINDOWS
+	struct LocalAddr
+	{
+		ADDRESS_FAMILY sun_family;
+		char           sun_path[108];
+	};
+#else
+	using LocalAddr = sockaddr_un;
+#endif // BX_PLATFORM_WINDOWS
+
+	static bool localAddress(LocalAddr& _out, const char* _path)
+	{
+		bx::memSet(&_out, 0, sizeof(_out) );
+		_out.sun_family = AF_UNIX;
+
+		const int32_t len = bx::strLen(_path);
+
+		if (0 == len
+		||  int32_t(sizeof(_out.sun_path) ) <= len)
+		{
+			return false;
+		}
+
+		bx::memCopy(_out.sun_path, _path, len);
+		return true;
+	}
+
+	static void localUnlink(const char* _path)
+	{
+#if BX_PLATFORM_WINDOWS
+		::_unlink(_path);
+#else
+		::unlink(_path);
+#endif // BX_PLATFORM_WINDOWS
+	}
+
+	static bool localPeerTrusted(SOCKET _socket)
+	{
+#if BX_PLATFORM_OSX || BX_PLATFORM_IOS
+		uid_t uid;
+		gid_t gid;
+		return true
+			&& 0 == ::getpeereid(_socket, &uid, &gid)
+			&& uid == ::geteuid()
+			;
+#elif BX_PLATFORM_LINUX || BX_PLATFORM_ANDROID
+		ucred cred;
+		socklen_t len = sizeof(cred);
+		return true
+			&& 0 == ::getsockopt(_socket, SOL_SOCKET, SO_PEERCRED, &cred, &len)
+			&& cred.uid == ::geteuid()
+			;
+#else
+		BX_UNUSED(_socket);
+		return true;
+#endif // BX_PLATFORM_*
 	}
 
 	static int connectsocket(SOCKET socket, uint32_t _ip, uint16_t _port, bool /*_secure*/)
@@ -118,7 +189,7 @@ namespace bnet
 		Connection()
 			: m_socket(INVALID_SOCKET)
 			, m_handle(invalidHandle)
-			, m_incomingBuffer( (uint8_t*)bx::alloc(g_allocator, BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE) )
+			, m_incomingBuffer( (uint8_t*)bx::allocPtr(g_allocatorBlk, BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE) )
 			, m_incoming(BNET_CONFIG_MAX_INCOMING_BUFFER_SIZE)
 			, m_recv(m_incoming, (char*)m_incomingBuffer)
 			, m_incomingMsg(NULL)
@@ -129,12 +200,14 @@ namespace bnet
 			, m_raw(false)
 			, m_tcpHandshake(true)
 			, m_tlsHandshake(false)
+			, m_lost(false)
 		{
 		}
 
 		~Connection()
 		{
-			bx::free(g_allocator, m_incomingBuffer);
+			disconnect();
+			bx::freePtr(m_incomingBuffer);
 		}
 
 		void connect(Handle _handle, uint32_t _ip, uint16_t _port, bool _raw, TlsContext* _tlsCtx, const char* _hostname)
@@ -186,13 +259,62 @@ namespace bnet
 #endif // BNET_CONFIG_TLS
 		}
 
-		bool accept(Handle _handle, Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, TlsContext* _tlsCtx)
+		void connectLocal(Handle _handle, const char* _path, bool _raw)
+		{
+			init(_handle, _raw);
+
+			LocalAddr addr;
+
+			if (!localAddress(addr, _path) )
+			{
+				ctxPush(m_handle, MessageId::ConnectFailed);
+				return;
+			}
+
+			m_socket = ::socket(AF_UNIX, SOCK_STREAM, 0);
+
+			if (INVALID_SOCKET == m_socket)
+			{
+				ctxPush(m_handle, MessageId::ConnectFailed);
+				return;
+			}
+
+			setSockOpts(m_socket, false);
+			setNonBlock(m_socket);
+
+			if (0 != ::connect(m_socket, (const sockaddr*)&addr, sizeof(addr) )
+			&&  !(isInProgress() || isWouldBlock() ) )
+			{
+				BX_TRACE("Connect %d - Local connect failed. %d", m_handle, getLastError() );
+
+				::closesocket(m_socket);
+				m_socket = INVALID_SOCKET;
+
+				ctxPush(m_handle, MessageId::ConnectFailed);
+			}
+		}
+
+		SOCKET getSocket() const
+		{
+			return m_socket;
+		}
+
+		bool wantsWrite()
+		{
+			return false
+				|| m_tcpHandshake
+				|| m_tlsHandshake
+				|| NULL != m_outgoing.peek()
+				;
+		}
+
+		bool accept(Handle _handle, Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, TlsContext* _tlsCtx, bool _local = false)
 		{
 			init(_handle, _raw);
 
 			m_socket = _socket;
 
-			setSockOpts(m_socket);
+			setSockOpts(m_socket, !_local);
 			setNonBlock(m_socket);
 
 			// Socket returned by accept is already connected.
@@ -267,6 +389,8 @@ namespace bnet
 
 			if (_reason != DisconnectReason::None)
 			{
+				m_lost = true;
+
 				Message* msg = msgAlloc(m_handle, 2, true);
 				msg->data[0] = MessageId::LostConnection;
 				msg->data[1] = uint8_t(_reason);
@@ -303,6 +427,11 @@ namespace bnet
 			return INVALID_SOCKET != m_socket;
 		}
 
+		bool isLost() const
+		{
+			return m_lost;
+		}
+
 	private:
 		void init(Handle _handle, bool _raw)
 		{
@@ -313,6 +442,7 @@ namespace bnet
 			m_incomingMsg = NULL;
 			m_len = -1;
 			m_raw = _raw;
+			m_lost = false;
 		}
 
 		void read(bx::WriteRingBuffer& _out, uint32_t _len)
@@ -686,6 +816,7 @@ namespace bnet
 		bool m_raw;
 		bool m_tcpHandshake;
 		bool m_tlsHandshake;
+		bool m_lost;
 	};
 
 	typedef FreeList<Connection> Connections;
@@ -699,7 +830,9 @@ namespace bnet
 			, m_tlsCtx(NULL)
 			, m_raw(false)
 			, m_secure(false)
+			, m_local(false)
 		{
+			m_path[0] = '\0';
 		}
 
 		~ListenSocket()
@@ -713,7 +846,15 @@ namespace bnet
 			{
 				::closesocket(m_socket);
 				m_socket = INVALID_SOCKET;
+
+				if (m_local)
+				{
+					localUnlink(m_path);
+				}
 			}
+
+			m_local   = false;
+			m_path[0] = '\0';
 
 			if (NULL != m_tlsCtx)
 			{
@@ -788,8 +929,101 @@ namespace bnet
 			setNonBlock(m_socket);
 		}
 
+		void listenLocal(Handle _handle, const char* _path, bool _raw)
+		{
+			m_handle = _handle;
+			m_raw    = _raw;
+			m_secure = false;
+
+			LocalAddr addr;
+
+			if (!localAddress(addr, _path) )
+			{
+				BX_TRACE("Local listen - path doesn't fit.");
+				ctxPush(m_handle, MessageId::ListenFailed);
+				return;
+			}
+
+			m_socket = ::socket(AF_UNIX, SOCK_STREAM, 0);
+
+			if (INVALID_SOCKET == m_socket)
+			{
+				BX_TRACE("Create local socket failed.");
+				ctxPush(m_handle, MessageId::ListenFailed);
+				return;
+			}
+
+			if (SOCKET_ERROR == ::bind(m_socket, (const sockaddr*)&addr, sizeof(addr) ) )
+			{
+				SOCKET probe = ::socket(AF_UNIX, SOCK_STREAM, 0);
+				const bool taken = true
+					&& INVALID_SOCKET != probe
+					&& 0 == ::connect(probe, (const sockaddr*)&addr, sizeof(addr) )
+					;
+
+				if (INVALID_SOCKET != probe)
+				{
+					::closesocket(probe);
+				}
+
+				if (!taken)
+				{
+					localUnlink(_path);
+				}
+
+				if (taken
+				||  SOCKET_ERROR == ::bind(m_socket, (const sockaddr*)&addr, sizeof(addr) ) )
+				{
+					::closesocket(m_socket);
+					m_socket = INVALID_SOCKET;
+
+					BX_TRACE("Local listen - another process listens there, or bind failed.");
+					ctxPush(m_handle, MessageId::ListenFailed);
+					return;
+				}
+			}
+
+			if (SOCKET_ERROR == ::listen(m_socket, SOMAXCONN) )
+			{
+				::closesocket(m_socket);
+				m_socket = INVALID_SOCKET;
+
+				BX_TRACE("Bind or listen local socket failed.");
+				ctxPush(m_handle, MessageId::ListenFailed);
+				return;
+			}
+
+#if !BX_PLATFORM_WINDOWS
+			::chmod(_path, S_IRUSR | S_IWUSR);
+#endif // !BX_PLATFORM_WINDOWS
+
+			bx::strCopy(m_path, sizeof(m_path), _path);
+			m_local = true;
+
+			setNonBlock(m_socket);
+		}
+
 		void update()
 		{
+			if (m_local)
+			{
+				SOCKET socket = ::accept(m_socket, NULL, NULL);
+
+				if (INVALID_SOCKET != socket)
+				{
+					if (!localPeerTrusted(socket) )
+					{
+						BX_TRACE("Local accept - another user's process, refused.");
+						::closesocket(socket);
+						return;
+					}
+
+					ctxAccept(m_handle, socket, 0, 0, m_raw, NULL, true);
+				}
+
+				return;
+			}
+
 			sockaddr_in addr;
 			socklen_t len = sizeof(addr);
 			SOCKET socket = ::accept(m_socket, (sockaddr*)&addr, &len);
@@ -801,13 +1035,20 @@ namespace bnet
 			}
 		}
 
+		SOCKET getSocket() const
+		{
+			return m_socket;
+		}
+
 	private:
 		sockaddr_in m_addr;
 		SOCKET m_socket;
 		Handle m_handle;
 		TlsContext* m_tlsCtx;
+		char m_path[sizeof(LocalAddr::sun_path)];
 		bool m_raw;
 		bool m_secure;
+		bool m_local;
 	};
 
 	typedef FreeList<ListenSocket> ListenSockets;
@@ -820,6 +1061,8 @@ namespace bnet
 			, m_listenSockets(NULL)
 			, m_tlsCtx(NULL)
 		{
+			m_wake[0] = INVALID_SOCKET;
+			m_wake[1] = INVALID_SOCKET;
 		}
 
 		~Context()
@@ -835,11 +1078,136 @@ namespace bnet
 
 			_maxConnections = _maxConnections == 0 ? 1 : _maxConnections;
 
-			m_connections = BX_NEW(g_allocator, Connections)(_maxConnections);
+			m_connections = BX_NEW_PTR(g_allocatorBlk, Connections)(_maxConnections);
 
 			if (0 != _maxListenSockets)
 			{
-				m_listenSockets = BX_NEW(g_allocator, ListenSockets)(_maxListenSockets);
+				m_listenSockets = BX_NEW_PTR(g_allocatorBlk, ListenSockets)(_maxListenSockets);
+			}
+
+			wakeCreate();
+		}
+
+		void wakeCreate()
+		{
+#if BX_PLATFORM_WINDOWS
+			SOCKET listener = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			sockaddr_in addr;
+			bx::memSet(&addr, 0, sizeof(addr) );
+			addr.sin_family      = AF_INET;
+			addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+			socklen_t len = sizeof(addr);
+
+			if (INVALID_SOCKET != listener
+			&&  0 == ::bind(listener, (sockaddr*)&addr, sizeof(addr) )
+			&&  0 == ::listen(listener, 1)
+			&&  0 == ::getsockname(listener, (sockaddr*)&addr, &len) )
+			{
+				m_wake[1] = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+				if (INVALID_SOCKET != m_wake[1]
+				&&  0 == ::connect(m_wake[1], (sockaddr*)&addr, sizeof(addr) ) )
+				{
+					m_wake[0] = ::accept(listener, NULL, NULL);
+				}
+			}
+
+			if (INVALID_SOCKET != listener)
+			{
+				::closesocket(listener);
+			}
+#else
+			int fds[2];
+
+			if (0 == ::socketpair(AF_UNIX, SOCK_STREAM, 0, fds) )
+			{
+				m_wake[0] = fds[0];
+				m_wake[1] = fds[1];
+			}
+#endif // BX_PLATFORM_WINDOWS
+
+			for (SOCKET socket : m_wake)
+			{
+				if (INVALID_SOCKET != socket)
+				{
+					setNonBlock(socket);
+				}
+			}
+		}
+
+		void wake()
+		{
+			if (INVALID_SOCKET != m_wake[1])
+			{
+				const char byte = 0;
+				const int result = ::send(m_wake[1], &byte, 1, 0);
+				BX_UNUSED(result);
+			}
+		}
+
+		void wait(int32_t _msecs, bx::Mutex& _mutex)
+		{
+			static constexpr uint32_t kMaxPoll = 1024;
+
+#if BX_PLATFORM_WINDOWS
+			using PollFd = WSAPOLLFD;
+#else
+			using PollFd = pollfd;
+#endif // BX_PLATFORM_WINDOWS
+
+			PollFd fds[kMaxPoll];
+			uint32_t num = 0;
+
+			{
+				bx::MutexScope lock(_mutex);
+
+				if (NULL != m_incoming.peek() )
+				{
+					return;
+				}
+
+				const auto add = [&](SOCKET _socket, short _events)
+				{
+					if (INVALID_SOCKET != _socket
+					&&  num < kMaxPoll)
+					{
+						fds[num].fd      = _socket;
+						fds[num].events  = _events;
+						fds[num].revents = 0;
+						++num;
+					}
+				};
+
+				add(m_wake[0], POLLIN);
+
+				if (NULL != m_listenSockets)
+				{
+					for (uint16_t handle = m_listenSockets->getFirstHandle(); bx::kInvalidHandle != handle; handle = m_listenSockets->getNextHandle(handle) )
+					{
+						add(m_listenSockets->getFromHandle(handle)->getSocket(), POLLIN);
+					}
+				}
+
+				for (uint16_t handle = m_connections->getFirstHandle(); bx::kInvalidHandle != handle; handle = m_connections->getNextHandle(handle) )
+				{
+					Connection* connection = m_connections->getFromHandle(handle);
+					add(connection->getSocket(), short(POLLIN | (connection->wantsWrite() ? POLLOUT : 0) ) );
+				}
+			}
+
+#if BX_PLATFORM_WINDOWS
+			::WSAPoll(fds, ULONG(num), _msecs);
+#else
+			::poll(fds, nfds_t(num), _msecs);
+#endif // BX_PLATFORM_WINDOWS
+
+			if (INVALID_SOCKET != m_wake[0])
+			{
+				char buffer[64];
+
+				while (0 < ::recv(m_wake[0], buffer, sizeof(buffer), 0) )
+				{
+				}
 			}
 		}
 
@@ -850,11 +1218,22 @@ namespace bnet
 				release(msg);
 			}
 
-			bx::deleteObject(g_allocator, m_connections);
+			for (SOCKET& socket : m_wake)
+			{
+				if (INVALID_SOCKET != socket)
+				{
+					::closesocket(socket);
+					socket = INVALID_SOCKET;
+				}
+			}
+
+			bx::deletePtr(m_connections);
+			m_connections = NULL;
 
 			if (NULL != m_listenSockets)
 			{
-				bx::deleteObject(g_allocator, m_listenSockets);
+				bx::deletePtr(m_listenSockets);
+				m_listenSockets = NULL;
 			}
 
 #if BNET_CONFIG_TLS
@@ -868,7 +1247,7 @@ namespace bnet
 
 		Handle listen(uint32_t _ip, uint16_t _port, bool _raw, const char* _cert, const char* _key)
 		{
-			ListenSocket* listenSocket = m_listenSockets->create();
+			ListenSocket* listenSocket = NULL != m_listenSockets ? m_listenSockets->create() : NULL;
 			if (NULL != listenSocket)
 			{
 				Handle handle = { m_listenSockets->getHandle(listenSocket) };
@@ -879,21 +1258,52 @@ namespace bnet
 			return invalidHandle;
 		}
 
+		Handle listenLocal(const char* _path, bool _raw)
+		{
+			ListenSocket* listenSocket = NULL != m_listenSockets ? m_listenSockets->create() : NULL;
+			if (NULL != listenSocket)
+			{
+				Handle handle = { m_listenSockets->getHandle(listenSocket) };
+				listenSocket->listenLocal(handle, _path, _raw);
+				return handle;
+			}
+
+			return invalidHandle;
+		}
+
+		Handle connectLocal(const char* _path, bool _raw)
+		{
+			Connection* connection = m_connections->create();
+			if (NULL != connection)
+			{
+				Handle handle = { m_connections->getHandle(connection) };
+				connection->connectLocal(handle, _path, _raw);
+				return handle;
+			}
+
+			return invalidHandle;
+		}
+
 		void stop(Handle _handle)
 		{
+			if (NULL == m_listenSockets)
+			{
+				return;
+			}
+
 			ListenSocket* listenSocket = { m_listenSockets->getFromHandle(_handle.idx) };
 			listenSocket->close();
 			m_listenSockets->destroy(listenSocket);
 		}
 
-		Handle accept(Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, TlsContext* _tlsCtx)
+		Handle accept(Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, TlsContext* _tlsCtx, bool _local)
 		{
 			Connection* connection = m_connections->create();
 			if (NULL != connection)
 			{
 				Handle handle = { m_connections->getHandle(connection) };
 
-				if (!connection->accept(handle, _listenHandle, _socket, _ip, _port, _raw, _tlsCtx) )
+				if (!connection->accept(handle, _listenHandle, _socket, _ip, _port, _raw, _tlsCtx, _local) )
 				{
 					m_connections->destroy(connection);
 					return invalidHandle;
@@ -986,16 +1396,16 @@ namespace bnet
 		{
 			if (NULL != m_listenSockets)
 			{
-				for (uint16_t ii = 0, num = m_listenSockets->getNumHandles(); ii < num; ++ii)
+				for (uint16_t handle = m_listenSockets->getFirstHandle(); bx::kInvalidHandle != handle; handle = m_listenSockets->getNextHandle(handle) )
 				{
-					ListenSocket* listenSocket = m_listenSockets->getFromHandleAt(ii);
+					ListenSocket* listenSocket = m_listenSockets->getFromHandle(handle);
 					listenSocket->update();
 				}
 			}
 
-			for (uint16_t ii = 0, num = m_connections->getNumHandles(); ii < num; ++ii)
+			for (uint16_t handle = m_connections->getFirstHandle(); bx::kInvalidHandle != handle; handle = m_connections->getNextHandle(handle) )
 			{
-				Connection* connection = m_connections->getFromHandleAt(ii);
+				Connection* connection = m_connections->getFromHandle(handle);
 				connection->update();
 			}
 
@@ -1016,7 +1426,7 @@ namespace bnet
 				{
 					m_connections->destroy(connection);
 				}
-				else if (connection->hasSocket() || MessageId::UserDefined > id)
+				else if (connection->hasSocket() || connection->isLost() || MessageId::UserDefined > id)
 				{
 					return msg;
 				}
@@ -1040,13 +1450,15 @@ namespace bnet
 		MessageQueue m_incoming;
 
 		TlsContext* m_tlsCtx;
+		SOCKET m_wake[2];
 	};
 
-	static Context s_ctx;
+	static Context   s_ctx;
+	static bx::Mutex s_mutex;
 
-	Handle ctxAccept(Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, TlsContext* _tlsCtx)
+	Handle ctxAccept(Handle _listenHandle, SOCKET _socket, uint32_t _ip, uint16_t _port, bool _raw, TlsContext* _tlsCtx, bool _local)
 	{
-		return s_ctx.accept(_listenHandle, _socket, _ip, _port, _raw, _tlsCtx);
+		return s_ctx.accept(_listenHandle, _socket, _ip, _port, _raw, _tlsCtx, _local);
 	}
 
 	void ctxPush(Handle _handle, MessageId::Enum _id)
@@ -1061,60 +1473,205 @@ namespace bnet
 		s_ctx.push(_msg);
 	}
 
+	static constexpr uint32_t kMessageStackSkip      = 2;
+	static constexpr uint32_t kMessageStackMaxFrames = 8;
+	static constexpr uint32_t kMessageStackMaxText   = 2048;
+
+	struct MessageStack
+	{
+		uintptr_t frames[kMessageStackMaxFrames];
+		uint32_t  num;
+		uint32_t  size;
+	};
+
+	using MessageStackMap = bx::HashMapT<uintptr_t, MessageStack>;
+
+	static int32_t          s_numMessages   = 0;
+	static MessageStackMap* s_messageStacks = NULL;
+	static bx::Mutex        s_messageMutex;
+
+	static void msgTrack(const Message* _msg)
+	{
+		bx::atomicFetchAndAdd(&s_numMessages, 1);
+
+		if (BX_ENABLED(BX_CONFIG_DEBUG) )
+		{
+			MessageStack stack;
+			stack.num  = bx::getCallStackFast(kMessageStackSkip, kMessageStackMaxFrames, stack.frames);
+			stack.size = _msg->size;
+
+			bx::MutexScope lock(s_messageMutex);
+
+			if (NULL == s_messageStacks)
+			{
+				s_messageStacks = BX_NEW_PTR(g_allocatorBlk, MessageStackMap)(g_allocatorHandle);
+			}
+
+			s_messageStacks->add(uintptr_t(_msg), stack);
+		}
+	}
+
+	static void msgUntrack(const Message* _msg)
+	{
+		bx::atomicFetchAndSub(&s_numMessages, 1);
+
+		if (BX_ENABLED(BX_CONFIG_DEBUG) )
+		{
+			bx::MutexScope lock(s_messageMutex);
+
+			if (NULL != s_messageStacks)
+			{
+				s_messageStacks->tryRemove(uintptr_t(_msg) );
+			}
+		}
+	}
+
+	static void msgCheckLeaks()
+	{
+		const int32_t numMessages = bx::atomicExchange(&s_numMessages, 0);
+
+		if (BX_ENABLED(BX_CONFIG_DEBUG)
+		&&  NULL != s_messageStacks)
+		{
+			if (!s_messageStacks->isEmpty() )
+			{
+				BX_TRACE("LEAK: Message %d", s_messageStacks->getCount() );
+
+				uint32_t ii = 0;
+				for (MessageStackMap::Iterator it = s_messageStacks->begin(), itEnd = s_messageStacks->end(); it != itEnd; ++it, ++ii)
+				{
+					const MessageStack& stack = it.getValue();
+
+					char text[kMessageStackMaxText];
+					bx::StaticMemoryBlockWriter writer(text, sizeof(text)-1);
+					bx::ErrorIgnore err;
+					const int32_t len = bx::writeCallstack(&writer, stack.frames, stack.num, &err);
+					text[len] = '\0';
+
+					BX_TRACE("\t%3d: %p, size %d\n%s"
+						, ii
+						, (const void*)it.getKey()
+						, stack.size
+						, text
+						);
+				}
+			}
+
+			bx::deletePtr(s_messageStacks);
+			s_messageStacks = NULL;
+		}
+
+		BX_ASSERT(0 == numMessages
+			, "%d bnet::Message(s) from bnet::alloc or bnet::recv were never passed to bnet::send or bnet::release."
+			, numMessages
+			);
+		BX_UNUSED(numMessages);
+	}
+
 	Message* msgAlloc(Handle _handle, uint16_t _size, bool _incoming, Internal::Enum _type)
 	{
 		uint16_t offset = _incoming ? 0 : 2;
-		Message* msg = (Message*)bx::alloc(g_allocator, sizeof(Message) + offset + _size);
+		Message* msg = (Message*)bx::allocPtr(g_allocatorBlk, sizeof(Message) + offset + _size);
 		msg->size = _size;
 		msg->handle = _handle;
 		uint8_t* data = (uint8_t*)msg + sizeof(Message);
 		data[0] = uint8_t(_type);
 		msg->data = data + offset;
+
+		msgTrack(msg);
+
 		return msg;
 	}
 
 	void msgRelease(Message* _msg)
 	{
-		bx::free(g_allocator, _msg);
+		msgUntrack(_msg);
+		bx::freePtr(_msg);
 	}
 
 	void init(uint16_t _maxConnections, uint16_t _maxListenSockets, const char* _certs[], bx::AllocatorI* _allocator)
 	{
 		if (NULL != _allocator)
 		{
-			g_allocator = _allocator;
+			g_allocatorBlk =
+				s_allocatorBlk = BX_PLACEMENT_NEW(s_allocatorBlkStorage, bx::PointerAllocator)(_allocator);
 		}
+		else
+		{
+			g_allocatorBlk = bx::getDefaultAllocatorBlk();
+		}
+
+		g_allocatorHandle = g_allocatorBlk->getHandle();
 
 #if BX_PLATFORM_WINDOWS
 		WSADATA wsaData;
 		WSAStartup(MAKEWORD(2, 2), &wsaData);
 #endif // BX_PLATFORM_WINDOWS
 
+		bx::MutexScope lock(s_mutex);
 		s_ctx.init(_maxConnections, _maxListenSockets, _certs);
 	}
 
 	void shutdown()
 	{
-		s_ctx.shutdown();
+		{
+			bx::MutexScope lock(s_mutex);
+			s_ctx.shutdown();
+		}
 
 #if BX_PLATFORM_WINDOWS
 		WSACleanup();
 #endif // BX_PLATFORM_WINDOWS
+
+		msgCheckLeaks();
+
+		if (NULL != s_allocatorBlk)
+		{
+			s_allocatorBlk->~PointerAllocator();
+			s_allocatorBlk = NULL;
+		}
+
+		g_allocatorBlk = NULL;
+		g_allocatorHandle = { bx::kAllocatorHandleDefault };
 	}
 
 	Handle listen(uint32_t _ip, uint16_t _port, bool _raw, const char* _cert, const char* _key)
 	{
-		return s_ctx.listen(_ip, _port, _raw, _cert, _key);
+		bx::MutexScope lock(s_mutex);
+		const Handle handle = s_ctx.listen(_ip, _port, _raw, _cert, _key);
+		s_ctx.wake();
+		return handle;
+	}
+
+	Handle listenLocal(const char* _path, bool _raw)
+	{
+		bx::MutexScope lock(s_mutex);
+		const Handle handle = s_ctx.listenLocal(_path, _raw);
+		s_ctx.wake();
+		return handle;
 	}
 
 	void stop(Handle _handle)
 	{
-		return s_ctx.stop(_handle);
+		bx::MutexScope lock(s_mutex);
+		s_ctx.stop(_handle);
+		s_ctx.wake();
 	}
 
 	Handle connect(uint32_t _ip, uint16_t _port, bool _raw, bool _secure, const char* _hostname)
 	{
-		return s_ctx.connect(_ip, _port, _raw, _secure, _secure ? _hostname : NULL);
+		bx::MutexScope lock(s_mutex);
+		const Handle handle = s_ctx.connect(_ip, _port, _raw, _secure, _secure ? _hostname : NULL);
+		s_ctx.wake();
+		return handle;
+	}
+
+	Handle connectLocal(const char* _path, bool _raw)
+	{
+		bx::MutexScope lock(s_mutex);
+		const Handle handle = s_ctx.connectLocal(_path, _raw);
+		s_ctx.wake();
+		return handle;
 	}
 
 	Handle connect(const char* _host, uint16_t _port, bool _raw, bool _secure)
@@ -1125,17 +1682,24 @@ namespace bnet
 			return invalidHandle;
 		}
 
-		return s_ctx.connect(ip, _port, _raw, _secure, _secure ? _host : NULL);
+		bx::MutexScope lock(s_mutex);
+		const Handle handle = s_ctx.connect(ip, _port, _raw, _secure, _secure ? _host : NULL);
+		s_ctx.wake();
+		return handle;
 	}
 
 	void disconnect(Handle _handle, bool _finish)
 	{
+		bx::MutexScope lock(s_mutex);
 		s_ctx.disconnect(_handle, _finish);
+		s_ctx.wake();
 	}
 
 	void notify(Handle _handle, uint64_t _userData)
 	{
+		bx::MutexScope lock(s_mutex);
 		s_ctx.notify(_handle, _userData);
+		s_ctx.wake();
 	}
 
 	OutgoingMessage* alloc(Handle _handle, uint16_t _size)
@@ -1150,12 +1714,25 @@ namespace bnet
 
 	void send(OutgoingMessage* _msg)
 	{
+		bx::MutexScope lock(s_mutex);
 		s_ctx.send(_msg);
+		s_ctx.wake();
 	}
 
 	IncomingMessage* recv()
 	{
+		bx::MutexScope lock(s_mutex);
 		return s_ctx.recv();
+	}
+
+	void wait(int32_t _msecs)
+	{
+		s_ctx.wait(_msecs, s_mutex);
+	}
+
+	void wake()
+	{
+		s_ctx.wake();
 	}
 
 	uint32_t toIpv4(const char* _addr)

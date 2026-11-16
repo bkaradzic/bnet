@@ -61,7 +61,7 @@ namespace bnet
 	/// Returns is handle is valid.
 	inline bool isValid(Handle _handle) { return invalidHandle.idx != _handle.idx; }
 
-	/// Initialize networking.
+	/// Initialize networking. Functions can be called from any thread after it.
 	///
 	/// @param _maxConnections Maximum concurrent outgoing connections.
 	/// @param _maxListenSockets Maximum number of listen ports.
@@ -121,6 +121,35 @@ namespace bnet
 	///
 	Handle connect(const char* _host, uint16_t _port, bool _raw = false, bool _secure = false);
 
+	/// Start listen for connections on local socket, from processes of the same user on the
+	/// same machine. Socket file at `_path` is created, and removed when listening stops; one
+	/// left by a process that ended is replaced. Listening fails when another process listens
+	/// at `_path` already, `bnet::recv` returns `MessageId::ListenFailed`; telling that apart
+	/// connects to it, the one that listens sees a connection that ends at once.
+	///
+	/// @param _path Socket file path. It must fit `sockaddr_un::sun_path` (about 100 bytes),
+	///   and should be in directory only the user can access.
+	/// @param _raw Non-structured messages. When this is `false` bnet
+	///   frames messages.
+	///
+	/// @returns Handle to connection object.
+	///
+	/// @remarks Windows 10 version 1803 or later. On Linux and macOS processes of other users
+	///   are refused, on Windows socket file's directory decides who can connect.
+	///
+	Handle listenLocal(const char* _path, bool _raw = false);
+
+	/// Connect to local socket.
+	///
+	/// @param _path Socket file path, the one passed to `bnet::listenLocal`.
+	/// @param _raw Non-structured messages. When this is `false` bnet
+	///   frames messages.
+	///
+	/// @returns Handle to connection object. `bnet::recv` returns `MessageId::ConnectFailed`
+	///   when nobody listens at `_path`.
+	///
+	Handle connectLocal(const char* _path, bool _raw = false);
+
 	/// Disconnect from remote host.
 	///
 	/// @param _handle Handle to connection object.
@@ -158,6 +187,16 @@ namespace bnet
 	/// @param Message returned by `bnet::recv` call.
 	///
 	void release(IncomingMessage* _msg);
+
+	/// Wait until connection, or listen socket, has something for `bnet::recv`, or until
+	/// `bnet::wake` is called, or `_msecs` passed.
+	///
+	/// @param _msecs Milliseconds to wait at most, negative waits until there's something.
+	///
+	void wait(int32_t _msecs = -1);
+
+	/// Wake `bnet::wait`, from any thread.
+	void wake();
 
 	/// Convert name to IP address.
 	///

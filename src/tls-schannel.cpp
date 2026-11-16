@@ -268,7 +268,7 @@ namespace bnet
 		if (!bx::strFind(bx::StringView(_pemOrPath), "-----BEGIN").isEmpty() )
 		{
 			const int32_t len = bx::strLen(_pemOrPath);
-			char* out = (char*)bx::alloc(g_allocator, len+1);
+			char* out = (char*)bx::allocPtr(g_allocatorBlk, len+1);
 			bx::memCopy(out, _pemOrPath, len);
 			out[len] = '\0';
 			return out;
@@ -286,14 +286,14 @@ namespace bnet
 		const int64_t size = reader.seek(0, bx::Whence::End);
 		reader.seek(0, bx::Whence::Begin);
 
-		char* out = (char*)bx::alloc(g_allocator, size+1);
+		char* out = (char*)bx::allocPtr(g_allocatorBlk, size+1);
 		reader.read(out, int32_t(size), &err);
 		reader.close();
 		out[size] = '\0';
 
 		if (!err.isOk() )
 		{
-			bx::free(g_allocator, out);
+			bx::freePtr(out);
 			return NULL;
 		}
 
@@ -308,10 +308,10 @@ namespace bnet
 			return NULL;
 		}
 
-		uint8_t* der = (uint8_t*)bx::alloc(g_allocator, size);
+		uint8_t* der = (uint8_t*)bx::allocPtr(g_allocatorBlk, size);
 		if (!s_crypt.CryptStringToBinaryA(_pem, 0, CRYPT_STRING_BASE64HEADER, der, &size, NULL, NULL) )
 		{
-			bx::free(g_allocator, der);
+			bx::freePtr(der);
 			return NULL;
 		}
 
@@ -372,7 +372,7 @@ namespace bnet
 				) )
 			{
 				BX_TRACE("SChannel: unsupported private key format (RSA PKCS#1/PKCS#8 only).");
-				bx::free(g_allocator, der);
+				bx::freePtr(der);
 				return false;
 			}
 
@@ -397,7 +397,7 @@ namespace bnet
 			LocalFree(pki);
 		}
 
-		bx::free(g_allocator, der);
+		bx::freePtr(der);
 
 		if (!decoded)
 		{
@@ -488,7 +488,7 @@ namespace bnet
 
 		const bool server = _ctx->m_server;
 
-		bx::deleteObject(g_allocator, _ctx);
+		bx::deletePtr(_ctx);
 
 		if (server)
 		{
@@ -514,7 +514,7 @@ namespace bnet
 			| SCH_USE_STRONG_CRYPTO
 			;
 
-		TlsContext* ctx = BX_NEW(g_allocator, TlsContext);
+		TlsContext* ctx = BX_NEW_PTR(g_allocatorBlk, TlsContext);
 		SecInvalidateHandle(&ctx->m_cred);
 		ctx->m_cert     = NULL;
 		ctx->m_prov     = 0;
@@ -565,7 +565,7 @@ namespace bnet
 			return NULL;
 		}
 
-		TlsContext* ctx = BX_NEW(g_allocator, TlsContext);
+		TlsContext* ctx = BX_NEW_PTR(g_allocatorBlk, TlsContext);
 		SecInvalidateHandle(&ctx->m_cred);
 		ctx->m_cert     = NULL;
 		ctx->m_prov     = 0;
@@ -588,7 +588,7 @@ namespace bnet
 			if (ok)
 			{
 				ctx->m_cert = s_crypt.CertCreateCertificateContext(X509_ASN_ENCODING|PKCS_7_ASN_ENCODING, certDer, certDerSize);
-				bx::free(g_allocator, certDer);
+				bx::freePtr(certDer);
 
 				ok = NULL != ctx->m_cert;
 
@@ -610,12 +610,12 @@ namespace bnet
 
 		if (NULL != certPem)
 		{
-			bx::free(g_allocator, certPem);
+			bx::freePtr(certPem);
 		}
 
 		if (NULL != keyPem)
 		{
-			bx::free(g_allocator, keyPem);
+			bx::freePtr(keyPem);
 		}
 
 		if (ok)
@@ -683,7 +683,7 @@ namespace bnet
 			return NULL;
 		}
 
-		TlsConnection* tls = BX_NEW(g_allocator, TlsConnection);
+		TlsConnection* tls = BX_NEW_PTR(g_allocatorBlk, TlsConnection);
 		tls->m_ctx        = tlsContextAddRef(_ctx);
 		tls->m_cred       = &_ctx->m_cred;
 		tls->m_socket     = _socket;
@@ -691,10 +691,10 @@ namespace bnet
 		tls->m_incomplete = false;
 		tls->m_server     = _server;
 		tls->m_state      = TlsConnection::Init;
-		tls->m_in     = (uint8_t*)bx::alloc(g_allocator, kTlsBufferSize);
+		tls->m_in     = (uint8_t*)bx::allocPtr(g_allocatorBlk, kTlsBufferSize);
 		tls->m_inLen  = 0;
 		tls->m_inCap  = kTlsBufferSize;
-		tls->m_dec    = (uint8_t*)bx::alloc(g_allocator, kTlsBufferSize);
+		tls->m_dec    = (uint8_t*)bx::allocPtr(g_allocatorBlk, kTlsBufferSize);
 		tls->m_decLen = 0;
 		tls->m_decPos = 0;
 		tls->m_decCap = kTlsBufferSize;
@@ -733,11 +733,11 @@ namespace bnet
 			s_sspi->DeleteSecurityContext(&_tls->m_ctxt);
 		}
 
-		bx::free(g_allocator, _tls->m_in);
-		bx::free(g_allocator, _tls->m_dec);
+		bx::freePtr(_tls->m_in);
+		bx::freePtr(_tls->m_dec);
 
 		TlsContext* ctx = _tls->m_ctx;
-		bx::deleteObject(g_allocator, _tls);
+		bx::deletePtr(_tls);
 		tlsContextDestroy(ctx);
 	}
 
@@ -1114,7 +1114,7 @@ namespace bnet
 		const uint32_t total = uint32_t(_len);
 		uint32_t offset = 0;
 
-		uint8_t* scratch = (uint8_t*)bx::alloc(g_allocator, header + maxMsg + trailer);
+		uint8_t* scratch = (uint8_t*)bx::allocPtr(g_allocatorBlk, header + maxMsg + trailer);
 
 		while (offset < total)
 		{
@@ -1143,21 +1143,21 @@ namespace bnet
 			if (SEC_E_OK != status)
 			{
 				BX_TRACE("SChannel: EncryptMessage failed 0x%08x.", status);
-				bx::free(g_allocator, scratch);
+				bx::freePtr(scratch);
 				return -1;
 			}
 
 			uint32_t encLen = bufs[0].cbBuffer + bufs[1].cbBuffer + bufs[2].cbBuffer;
 			if (!tlsSendAll(_tls->m_socket, scratch, encLen) )
 			{
-				bx::free(g_allocator, scratch);
+				bx::freePtr(scratch);
 				return -1;
 			}
 
 			offset += chunk;
 		}
 
-		bx::free(g_allocator, scratch);
+		bx::freePtr(scratch);
 		return int(total);
 	}
 
