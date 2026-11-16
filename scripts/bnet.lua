@@ -17,6 +17,11 @@ project "bnet"
 
 	using_bx()
 
+	configuration { "not vs*" }
+		buildoptions_c {
+			"-Wno-undef", -- mbedtls
+		}
+
 	configuration {}
 
 	copyLib()

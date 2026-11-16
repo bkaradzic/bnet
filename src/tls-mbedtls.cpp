@@ -142,12 +142,12 @@ namespace bnet
 		mbedtls_ssl_config_free(&_ctx->m_conf);
 		mbedtls_ctr_drbg_free(&_ctx->m_drbg);
 		mbedtls_entropy_free (&_ctx->m_entropy);
-		bx::deleteObject(g_allocator, _ctx);
+		bx::deletePtr(_ctx);
 	}
 
 	static TlsContext* tlsContextCreate(bool _server, const char* _cert, const char* _key)
 	{
-		TlsContext* ctx = BX_NEW(g_allocator, TlsContext);
+		TlsContext* ctx = BX_NEW_PTR(g_allocatorBlk, TlsContext);
 		ctx->m_refCount = 1;
 		ctx->m_server   = _server;
 
@@ -249,7 +249,7 @@ namespace bnet
 			return NULL;
 		}
 
-		TlsConnection* tls = BX_NEW(g_allocator, TlsConnection);
+		TlsConnection* tls = BX_NEW_PTR(g_allocatorBlk, TlsConnection);
 		tls->m_ctx    = tlsContextAddRef(_ctx);
 		tls->m_socket = _socket;
 		tls->m_state  = TlsConnection::Handshake;
@@ -269,7 +269,7 @@ namespace bnet
 		{
 			mbedtls_ssl_free(&tls->m_ssl);
 			tlsContextDestroy(tls->m_ctx);
-			bx::deleteObject(g_allocator, tls);
+			bx::deletePtr(tls);
 			return NULL;
 		}
 
@@ -302,7 +302,7 @@ namespace bnet
 
 		mbedtls_ssl_free(&_tls->m_ssl);
 		tlsContextDestroy(_tls->m_ctx);
-		bx::deleteObject(g_allocator, _tls);
+		bx::deletePtr(_tls);
 	}
 
 	int tlsHandshake(TlsConnection* _tls)
